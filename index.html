@@ -11,6 +11,7 @@
     --muted: #bfbfbf;
     --line: #262626;
     --accent: #2a2a2a;
+    --subtle: #8f8f8f;
 }
 html,body{
     height:100%;
@@ -111,6 +112,14 @@ button:hover{ background:#171717; }
     margin-top:6px;
     display:none;
 }
+/* session id, very subtle and small under buttons */
+.sessionId {
+    margin-top:8px;
+    font-size:11px;
+    color:var(--subtle);
+    opacity:0.8;
+    user-select: text;
+}
 </style>
 </head>
 <body>
@@ -138,7 +147,10 @@ button:hover{ background:#171717; }
                 <button id="checkBtn" type="button">✅ Next</button>
             </div>
 
-            <div id="finishedMsg" class="finishedText">All captchas completed! 🎉</div>
+            <!-- subtle session id display (will be filled after server returns) -->
+            <div id="sessionId" class="sessionId" aria-hidden="true"></div>
+
+            <div id="finishedMsg" class="finishedText" style="display:none">All captchas completed! 🎉</div>
         </div>
 
     </div>
@@ -161,24 +173,50 @@ button:hover{ background:#171717; }
     const finishedMsg = document.getElementById('finishedMsg');
     const invalidMsg = document.getElementById('invalidMsg');
     const audio = document.getElementById('testAudio');
+    const sessionIdEl = document.getElementById('sessionId');
 
     let currentCaptcha = 0;
     const totalCaptcha = 5;
+    let currentSessionId = null; // will hold the 9-digit code
 
-    // Initial loader
-    function startSearchAndShowCaptcha(){
+    // --- initial search: call server API, show loader for ~2s, then reveal first captcha ---
+    async function startSearchAndShowCaptcha(){
+        // show loader
         searchFrame.style.display = 'flex';
         captchaFrame.style.display = 'none';
         captchaFrame.setAttribute('aria-hidden','true');
+        sessionIdEl.textContent = ''; // clear
 
+        try {
+            // request a captcha session id from the same server
+            // same-origin fetch to /api/request-captcha
+            const res = await fetch('/api/request-captcha', { method: 'GET', cache: 'no-store' });
+            if(res.ok){
+                const j = await res.json();
+                if(j && typeof j.sessionId === 'string'){
+                    currentSessionId = j.sessionId;
+                    // show session id unobtrusively (but don't be too flashy)
+                    sessionIdEl.textContent = `session ${currentSessionId}`;
+                    sessionIdEl.setAttribute('aria-hidden','false');
+                }
+            } else {
+                // API error: leave sessionId null (graceful fallback)
+                console.warn('captcha session API returned', res.status);
+            }
+        } catch (err) {
+            console.warn('captcha session request failed', err);
+        }
+
+        // keep loader at least 2s for UX consistency
         setTimeout(() => {
             searchFrame.style.display = 'none';
             captchaFrame.style.display = 'block';
             captchaFrame.setAttribute('aria-hidden','false');
+            // initialize first captcha
             currentCaptcha = 1;
             updateCounter();
             resetForNewCaptcha();
-        },2000);
+        }, 2000);
     }
 
     function updateCounter(){
@@ -188,7 +226,6 @@ button:hover{ background:#171717; }
     function resetForNewCaptcha(){
         finishedMsg.style.display='none';
         invalidMsg.style.display='none';
-        finishedMsg.setAttribute('aria-hidden','true');
         invalidMsg.setAttribute('aria-hidden','true');
 
         userIdInput.style.display='';
@@ -200,6 +237,13 @@ button:hover{ background:#171717; }
         audio.pause();
         audio.currentTime=0;
         audioBtn.setAttribute('aria-pressed','false');
+
+        // if no session id was returned, sessionIdEl remains empty
+        if (currentSessionId) {
+            sessionIdEl.style.display = ''; // ensure visible
+        } else {
+            sessionIdEl.style.display = 'none';
+        }
     }
 
     audioBtn.addEventListener('click', () => {
@@ -214,7 +258,7 @@ button:hover{ background:#171717; }
     userIdInput.addEventListener('focus', ()=>{ if(userIdInput.value.length===0) userIdInput.placeholder=''; });
     userIdInput.addEventListener('blur', ()=>{ if(userIdInput.value.length===0) userIdInput.placeholder='Input Solution'; });
 
-    // Validation: only 1,2,3 allowed
+    // Validation: only '1','2','3' allowed
     function isValidInput(val){
         return ['1','2','3'].includes(val.trim());
     }
@@ -230,6 +274,7 @@ button:hover{ background:#171717; }
             invalidMsg.setAttribute('aria-hidden','true');
         }
 
+        // reset audio (do not autoplay next)
         audio.pause();
         audio.currentTime = 0;
         audioBtn.setAttribute('aria-pressed','false');
@@ -240,14 +285,15 @@ button:hover{ background:#171717; }
             userIdInput.value='';
             userIdInput.placeholder='Input Solution';
             taskText.textContent='Listen to the audio and enter your ID:';
+            // keep currentSessionId the same (session persists)
         } else {
+            // final state inside same captcha frame
             captchaCounter.textContent='All captchas completed!';
             taskText.textContent='You have successfully completed all captchas.';
             userIdInput.style.display='none';
             audioBtn.style.display='none';
             checkBtn.style.display='none';
             finishedMsg.style.display='block';
-            finishedMsg.setAttribute('aria-hidden','false');
         }
     });
 
@@ -258,6 +304,5 @@ button:hover{ background:#171717; }
     startSearchAndShowCaptcha();
 })();
 </script>
-
 </body>
 </html>
