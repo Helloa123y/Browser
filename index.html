@@ -5,163 +5,145 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>FunCaptcha</title>
 <style>
-    :root{
-        --bg: #0f0f10;
-        --panel: #151515;
-        --muted: #bfbfbf;
-        --line: #262626;
-        --accent: #2a2a2a;
-    }
-
-    html,body{
-        height:100%;
-        margin:0;
-        font-family: "Segoe UI", Roboto, Arial, sans-serif;
-        background: var(--bg);
-        color: var(--muted);
-        display:flex;
-        align-items:center;
-        justify-content:center;
-    }
-
-    /* overlay */
-    #popupOverlay{
-        position:fixed;
-        inset:0;
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        background: rgba(0,0,0,0.6);
-    }
-
-    /* panel (eckig) */
-    #funCaptchaBox{
-        width:360px;
-        background: var(--panel);
-        border:1px solid var(--line);
-        padding:22px;
-        box-sizing:border-box;
-        text-align:center;
-    }
-
-    h1{
-        margin:0 0 10px 0;
-        font-size:18px;
-        color:var(--muted);
-        font-weight:600;
-    }
-
-    p.small{
-        margin:6px 0 14px 0;
-        color:#9f9f9f;
-        font-size:13px;
-    }
-
-    /* loader area */
-    .loaderWrap{
-        display:flex;
-        flex-direction:column;
-        align-items:center;
-        gap:12px;
-        padding:18px 0;
-    }
-
-    .spinner{
-        width:48px;
-        height:48px;
-        border:4px solid var(--accent);
-        border-top-color: var(--muted);
-        box-sizing:border-box;
-        animation:spin 0.9s linear infinite;
-    }
-
-    @keyframes spin{ to{ transform: rotate(360deg); } }
-
-    /* captcha content */
-    .captchaContent{ display:none; } /* hidden while searching */
-
-    input[type="text"]{
-        width:100%;
-        padding:8px 10px;
-        box-sizing:border-box;
-        background:#111;
-        color:var(--muted);
-        border:1px solid var(--line);
-        font-size:14px;
-        text-align:center;
-        outline:none;
-    }
-    input[type="text"]::placeholder{ color:#7f7f7f; }
-
-    .controls{
-        margin-top:14px;
-        display:flex;
-        gap:8px;
-        justify-content:center;
-    }
-
-    button{
-        padding:9px 14px;
-        background: #111;
-        color:var(--muted);
-        border:1px solid var(--line);
-        cursor:pointer;
-        font-weight:600;
-        font-size:13px;
-        box-sizing:border-box;
-    }
-    button:hover{ background:#171717; }
-
-    /* subtle small counter line */
-    .counter{
-        font-size:13px;
-        color:#a9a9a9;
-        margin-bottom:8px;
-    }
-
-    /* finished state */
-    .finishedText{
-        margin-top:12px;
-        color:#cfcfcf;
-        font-weight:600;
-    }
-
-    /* hide visually but keep layout if needed */
-    .hidden{ display:none !important; }
+:root{
+    --bg: #0f0f10;
+    --panel: #151515;
+    --muted: #bfbfbf;
+    --line: #262626;
+    --accent: #2a2a2a;
+}
+html,body{
+    height:100%;
+    margin:0;
+    font-family: "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--muted);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+#popupOverlay{
+    position:fixed;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background: rgba(0,0,0,0.6);
+}
+#funCaptchaBox{
+    width:360px;
+    background: var(--panel);
+    border:1px solid var(--line);
+    padding:22px;
+    box-sizing:border-box;
+    text-align:center;
+}
+h1{
+    margin:0 0 10px 0;
+    font-size:18px;
+    color:var(--muted);
+    font-weight:600;
+}
+p.small{
+    margin:6px 0 14px 0;
+    color:#9f9f9f;
+    font-size:13px;
+}
+.loaderWrap{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:12px;
+    padding:18px 0;
+}
+.spinner{
+    width:48px;
+    height:48px;
+    border:4px solid var(--accent);
+    border-top-color: var(--muted);
+    box-sizing:border-box;
+    animation:spin 0.9s linear infinite;
+}
+@keyframes spin{ to{ transform: rotate(360deg); } }
+.captchaContent{ display:none; }
+input[type="text"]{
+    width:100%;
+    padding:8px 10px;
+    box-sizing:border-box;
+    background:#111;
+    color:var(--muted);
+    border:1px solid var(--line);
+    font-size:14px;
+    text-align:center;
+    outline:none;
+}
+input[type="text"]::placeholder{ color:#7f7f7f; }
+.controls{
+    margin-top:14px;
+    display:flex;
+    gap:8px;
+    justify-content:center;
+}
+button{
+    padding:9px 14px;
+    background: #111;
+    color:var(--muted);
+    border:1px solid var(--line);
+    cursor:pointer;
+    font-weight:600;
+    font-size:13px;
+    box-sizing:border-box;
+}
+button:hover{ background:#171717; }
+.counter{
+    font-size:13px;
+    color:#a9a9a9;
+    margin-bottom:8px;
+}
+.finishedText{
+    margin-top:12px;
+    color:#cfcfcf;
+    font-weight:600;
+}
+.invalidMsg{
+    color:#ff4c4c;
+    font-size:13px;
+    margin-top:6px;
+    display:none;
+}
 </style>
 </head>
 <body>
 
-<div id="popupOverlay" aria-hidden="false">
-    <div id="funCaptchaBox" role="dialog" aria-label="FunCaptcha Popup">
-
+<div id="popupOverlay">
+    <div id="funCaptchaBox">
         <h1>FunCaptcha</h1>
 
-        <!-- INITIAL SEARCH / LOADER -->
+        <!-- Loader -->
         <div id="searchFrame" class="loaderWrap" aria-live="polite">
             <div class="spinner" aria-hidden="true"></div>
             <p class="small" id="searchText">Looking for captchas…</p>
         </div>
 
-        <!-- CAPTCHA CONTENT (hidden until search finished) -->
+        <!-- Captcha content -->
         <div id="captchaFrame" class="captchaContent" aria-hidden="true">
             <div class="counter" id="captchaCounter">1 of 5</div>
             <p class="small" id="taskText">Listen to the audio and enter your ID:</p>
 
-            <input type="text" id="userIdInput" placeholder="Enter your ID here" autocomplete="off" />
+            <input type="text" id="userIdInput" placeholder="Input Solution" autocomplete="off" />
+            <div id="invalidMsg" class="invalidMsg">Invalid input</div>
 
-            <div class="controls" style="margin-top:12px;">
+            <div class="controls">
                 <button id="audioBtn" type="button" aria-pressed="false">🔊 Play/Pause</button>
-                <button id="checkBtn" type="button">✅ Submit</button>
+                <button id="checkBtn" type="button">✅ Next</button>
             </div>
 
-            <div id="finishedMsg" class="finishedText hidden" aria-hidden="true">All captchas completed! 🎉</div>
+            <div id="finishedMsg" class="finishedText">All captchas completed! 🎉</div>
         </div>
 
     </div>
 </div>
 
-<!-- audio (example file) -->
 <audio id="testAudio" preload="auto">
     <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
     Your browser does not support audio.
@@ -177,117 +159,105 @@
     const audioBtn = document.getElementById('audioBtn');
     const checkBtn = document.getElementById('checkBtn');
     const finishedMsg = document.getElementById('finishedMsg');
+    const invalidMsg = document.getElementById('invalidMsg');
     const audio = document.getElementById('testAudio');
 
     let currentCaptcha = 0;
     const totalCaptcha = 5;
 
-    // --- initial search: show loader for 2s then reveal first captcha ---
+    // Initial loader
     function startSearchAndShowCaptcha(){
-        // ensure UI: show search, hide captcha parts
         searchFrame.style.display = 'flex';
         captchaFrame.style.display = 'none';
         captchaFrame.setAttribute('aria-hidden','true');
 
-        // after 2 seconds, show captcha content
         setTimeout(() => {
             searchFrame.style.display = 'none';
             captchaFrame.style.display = 'block';
             captchaFrame.setAttribute('aria-hidden','false');
-            // initialize first captcha
             currentCaptcha = 1;
             updateCounter();
             resetForNewCaptcha();
-        }, 2000);
+        },2000);
     }
 
-    // update counter display
     function updateCounter(){
         captchaCounter.textContent = `${currentCaptcha} of ${totalCaptcha}`;
     }
 
-    // reset UI for new captcha: hide finished msg, show inputs, reset audio & input
     function resetForNewCaptcha(){
-        finishedMsg.classList.add('hidden');
+        finishedMsg.style.display='none';
+        invalidMsg.style.display='none';
         finishedMsg.setAttribute('aria-hidden','true');
+        invalidMsg.setAttribute('aria-hidden','true');
 
-        userIdInput.style.display = ''; // show
-        audioBtn.style.display = ''; // show
-        checkBtn.style.display = ''; // show
+        userIdInput.style.display='';
+        audioBtn.style.display='';
+        checkBtn.style.display='';
 
-        userIdInput.value = '';
-        userIdInput.placeholder = 'Enter your ID here';
+        userIdInput.value='';
+        userIdInput.placeholder='Input Solution';
         audio.pause();
-        audio.currentTime = 0;
+        audio.currentTime=0;
         audioBtn.setAttribute('aria-pressed','false');
     }
 
-    // audio toggle play/pause
     audioBtn.addEventListener('click', () => {
-        if (audio.paused) {
-            audio.play().catch(()=>{/* ignore play errors (autoplay) */});
-            audioBtn.setAttribute('aria-pressed','true');
+        if (audio.paused) { audio.play().catch(()=>{}); audioBtn.setAttribute('aria-pressed','true'); }
+        else { audio.pause(); audioBtn.setAttribute('aria-pressed','false'); }
+    });
+
+    userIdInput.addEventListener('input', ()=>{
+        if(userIdInput.value.length>0) userIdInput.placeholder='';
+        else userIdInput.placeholder='Input Solution';
+    });
+    userIdInput.addEventListener('focus', ()=>{ if(userIdInput.value.length===0) userIdInput.placeholder=''; });
+    userIdInput.addEventListener('blur', ()=>{ if(userIdInput.value.length===0) userIdInput.placeholder='Input Solution'; });
+
+    // Validation: only 1,2,3 allowed
+    function isValidInput(val){
+        return ['1','2','3'].includes(val.trim());
+    }
+
+    checkBtn.addEventListener('click', ()=>{
+        const val = userIdInput.value;
+        if(!isValidInput(val)){
+            invalidMsg.style.display='block';
+            invalidMsg.setAttribute('aria-hidden','false');
+            return; // stop captcha progression
         } else {
-            audio.pause();
-            audioBtn.setAttribute('aria-pressed','false');
+            invalidMsg.style.display='none';
+            invalidMsg.setAttribute('aria-hidden','true');
         }
-    });
 
-    // placeholder disappears when typing (also on focus typing)
-    userIdInput.addEventListener('input', () => {
-        if (userIdInput.value.length > 0) userIdInput.placeholder = '';
-        else userIdInput.placeholder = 'Enter your ID here';
-    });
-
-    // when user focuses into input, hide placeholder (visual)
-    userIdInput.addEventListener('focus', () => {
-        if (userIdInput.value.length === 0) userIdInput.placeholder = '';
-    });
-    userIdInput.addEventListener('blur', () => {
-        if (userIdInput.value.length === 0) userIdInput.placeholder = 'Enter your ID here';
-    });
-
-    // Next button: reset audio, advance captcha. Do not autoplay.
-    checkBtn.addEventListener('click', () => {
-        // reset audio
         audio.pause();
         audio.currentTime = 0;
         audioBtn.setAttribute('aria-pressed','false');
 
-        if (currentCaptcha < totalCaptcha) {
+        if(currentCaptcha < totalCaptcha){
             currentCaptcha++;
             updateCounter();
-            // reset input and texts
-            userIdInput.value = '';
-            userIdInput.placeholder = 'Enter your ID here';
-            taskText.textContent = 'Listen to the audio and enter your ID:';
-            // keep captchaFrame visible (no loader)
+            userIdInput.value='';
+            userIdInput.placeholder='Input Solution';
+            taskText.textContent='Listen to the audio and enter your ID:';
         } else {
-            // final state inside same captcha frame
-            captchaCounter.textContent = 'All captchas completed!';
-            taskText.textContent = 'You have successfully completed all captchas.';
-            // hide input and controls
-            userIdInput.style.display = 'none';
-            audioBtn.style.display = 'none';
-            checkBtn.style.display = 'none';
-            // show finished message
-            finishedMsg.classList.remove('hidden');
+            captchaCounter.textContent='All captchas completed!';
+            taskText.textContent='You have successfully completed all captchas.';
+            userIdInput.style.display='none';
+            audioBtn.style.display='none';
+            checkBtn.style.display='none';
+            finishedMsg.style.display='block';
             finishedMsg.setAttribute('aria-hidden','false');
         }
     });
 
-    // kick off
-    startSearchAndShowCaptcha();
-
-    // optional: keyboard enter to press Next
-    userIdInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            checkBtn.click();
-        }
+    userIdInput.addEventListener('keydown',(e)=>{
+        if(e.key==='Enter'){ e.preventDefault(); checkBtn.click(); }
     });
 
+    startSearchAndShowCaptcha();
 })();
 </script>
+
 </body>
 </html>
