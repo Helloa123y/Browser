@@ -1,3 +1,17 @@
+const express = require('express');
+const path = require('path');
+const crypto = require('crypto');
+const axios = require('axios');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(express.json());
+
+// 1️⃣ Statische Dateien ausliefern (HTML, CSS, JS)
+app.use(express.static(path.join(__dirname, 'public')));
+
+// 2️⃣ API: request a new fake captcha session id
 app.get('/api/request-captcha', async (req, res) => {
   try {
     // Zufällige Session-ID generieren
@@ -37,4 +51,17 @@ app.get('/api/request-captcha', async (req, res) => {
       details: err.response?.data || null
     });
   }
+});
+
+// 3️⃣ Health Check (optional)
+app.get('/health', (req, res) => res.json({ ok: true }));
+
+// 4️⃣ Alle anderen Requests → index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// 5️⃣ Server starten
+app.listen(PORT, () => {
+  console.log(`✅ Server listening on port ${PORT}`);
 });
