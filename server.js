@@ -21,11 +21,11 @@ app.get('/api/request-captcha', async (req, res) => {
     console.log(`[INFO] Neue Captcha-Session ${sessionId} gestartet.`);
 
     // Anfrage an externen Server, um Captchas herunterzuladen
-    const response = await axios.get("http://91.98.162.218/download", {
+    const response = await axios.post("http://91.98.162.218/download", {
       params: { channelId: 2 }, // channelId=2 → Captchas laden
       timeout: 15000
     });
-
+  
     console.log(`[DEBUG] Remote Captcha-Server antwortete mit Status ${response.status}`);
 
     // Rückgabe an Client
