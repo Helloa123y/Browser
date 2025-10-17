@@ -1,68 +1,142 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meine coole Website</title>
-    <style>
-        /* Hintergrund und Schrift */
-        body {
-            margin: 0;
-            font-family: 'Segoe UI', sans-serif;
-            background: linear-gradient(120deg, #4facfe, #00f2fe);
-            color: #fff;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            text-align: center;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FunCaptcha Test</title>
+<style>
+    body {
+        font-family: 'Segoe UI', sans-serif;
+        background: #121212;
+        color: #fff;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+    }
 
-        /* Überschrift */
-        h1 {
-            font-size: 3rem;
-            margin-bottom: 0.5rem;
-            animation: fadeIn 2s ease-in-out;
-        }
+    /* Overlay */
+    #popupOverlay {
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.7);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
 
-        /* Untertitel */
-        p {
-            font-size: 1.2rem;
-            margin-bottom: 2rem;
-            animation: fadeIn 2s ease-in-out 0.5s;
-        }
+    /* FunCaptcha Box */
+    #funCaptchaBox {
+        background: #1f1f1f;
+        padding: 20px 30px;
+        border-radius: 12px;
+        text-align: center;
+        width: 320px;
+    }
 
-        /* Button */
-        .btn {
-            padding: 1rem 2rem;
-            background-color: #fff;
-            color: #4facfe;
-            border: none;
-            border-radius: 50px;
-            font-size: 1rem;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
+    #funCaptchaBox h2 {
+        margin-bottom: 15px;
+        font-size: 1.4rem;
+        color: #4facfe;
+    }
 
-        .btn:hover {
-            background-color: #4facfe;
-            color: #fff;
-            transform: scale(1.1);
-        }
+    #funCaptchaBox input[type="number"] {
+        width: 60px;
+        padding: 5px;
+        font-size: 1rem;
+        border-radius: 6px;
+        border: 1px solid #333;
+        margin-bottom: 10px;
+        text-align: center;
+    }
 
-        /* Animation */
-        @keyframes fadeIn {
-            0% { opacity: 0; transform: translateY(-20px); }
-            100% { opacity: 1; transform: translateY(0); }
-        }
-    </style>
+    #funCaptchaBox button {
+        padding: 10px 20px;
+        margin: 5px;
+        border-radius: 8px;
+        border: none;
+        background-color: #4facfe;
+        color: #fff;
+        cursor: pointer;
+        font-weight: bold;
+        transition: 0.2s;
+    }
+
+    #funCaptchaBox button:hover {
+        background-color: #00f2fe;
+    }
+
+    label {
+        display: block;
+        margin-top: 10px;
+        font-size: 0.9rem;
+    }
+
+</style>
 </head>
 <body>
-    <h1>Willkommen auf meiner Website!</h1>
-    <p>Hier startet dein cooles Webprojekt 😎</p>
-    <button class="btn" onclick="alert('Du hast den Button geklickt!')">Klick mich!</button>
+
+<div id="popupOverlay">
+    <div id="funCaptchaBox">
+        <h2>FunCaptcha Test</h2>
+        <p id="taskText">Gib die Zahl ein, die du hörst:</p>
+
+        <input type="number" id="numberInput" placeholder="0" />
+
+        <div>
+            <button onclick="playAudio()">🔊 Sound abspielen</button>
+        </div>
+
+        <label>Audio-Position (Sekunden):
+            <input type="number" id="audioPosition" value="0" step="0.1" />
+        </label>
+
+        <label>Audio-Geschwindigkeit:
+            <input type="number" id="audioSpeed" value="1" step="0.1" />
+        </label>
+
+        <div>
+            <button onclick="checkInput()">✅ Prüfen</button>
+        </div>
+    </div>
+</div>
+
+<audio id="testAudio">
+    <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
+    Dein Browser unterstützt kein Audio.
+</audio>
+
+<script>
+const audio = document.getElementById('testAudio');
+const input = document.getElementById('numberInput');
+const posInput = document.getElementById('audioPosition');
+const speedInput = document.getElementById('audioSpeed');
+const taskText = document.getElementById('taskText');
+
+// Zufallszahl generieren (die "Lösung")
+const targetNumber = Math.floor(Math.random() * 10) + 1;
+taskText.textContent = `Gib die Zahl ein, die du hörst (1-10):`;
+
+function playAudio() {
+    const pos = parseFloat(posInput.value) || 0;
+    const speed = parseFloat(speedInput.value) || 1;
+
+    audio.currentTime = pos;
+    audio.playbackRate = speed;
+    audio.play();
+}
+
+function checkInput() {
+    if (parseInt(input.value) === targetNumber) {
+        alert('Richtig! 🎉');
+        document.getElementById('popupOverlay').style.display = 'none';
+    } else {
+        alert('Falsch! Versuche es nochmal 😅');
+    }
+}
+</script>
+
 </body>
 </html>
-
