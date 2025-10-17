@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -80,24 +80,24 @@
 <div id="popupOverlay">
     <div id="funCaptchaBox">
         <h2>FunCaptcha</h2>
-        <p id="captchaCounter">1 von 5</p>
-        <p id="taskText">Höre dir das Audio an und gib deine ID ein:</p>
+        <p id="captchaCounter">Looking for captchas…</p>
+        <p id="taskText">Please wait while we search for captchas.</p>
 
-        <input type="text" id="userIdInput" placeholder="Deine ID hier eingeben" />
+        <input type="text" id="userIdInput" placeholder="Enter your ID here" />
 
         <div>
             <button id="audioBtn">🔊 Play/Pause Audio</button>
         </div>
 
         <div>
-            <button id="checkBtn">✅ Weiter</button>
+            <button id="checkBtn">✅ Next</button>
         </div>
     </div>
 </div>
 
 <audio id="testAudio">
     <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
-    Dein Browser unterstützt kein Audio.
+    Your browser does not support audio.
 </audio>
 
 <script>
@@ -108,8 +108,17 @@ const captchaCounter = document.getElementById('captchaCounter');
 const taskText = document.getElementById('taskText');
 const userIdInput = document.getElementById('userIdInput');
 
-let currentCaptcha = 1;
+let currentCaptcha = 0;
 const totalCaptcha = 5;
+
+// Hide placeholder when user types
+userIdInput.addEventListener('input', () => {
+    if(userIdInput.value.length > 0){
+        userIdInput.placeholder = "";
+    } else {
+        userIdInput.placeholder = "Enter your ID here";
+    }
+});
 
 // Audio Play/Pause
 audioBtn.addEventListener('click', () => {
@@ -117,21 +126,27 @@ audioBtn.addEventListener('click', () => {
     else audio.pause();
 });
 
-// Check-Button erzeugt das nächste Captcha
+// Check-Button -> next captcha
 checkBtn.addEventListener('click', () => {
     // Audio zurücksetzen
     audio.pause();
     audio.currentTime = 0;
 
-    if(currentCaptcha < totalCaptcha){
+    if(currentCaptcha === 0){
+        // Erstes Captcha laden
+        currentCaptcha = 1;
+        captchaCounter.textContent = `${currentCaptcha} of ${totalCaptcha}`;
+        taskText.textContent = "Listen to the audio and enter your ID:";
+        userIdInput.value = "";
+    } else if(currentCaptcha < totalCaptcha){
         currentCaptcha++;
-        captchaCounter.textContent = `${currentCaptcha} von ${totalCaptcha}`;
-        userIdInput.value = ""; // Eingabefeld zurücksetzen
-        taskText.textContent = "Höre dir das Audio an und gib deine ID ein:";
+        captchaCounter.textContent = `${currentCaptcha} of ${totalCaptcha}`;
+        taskText.textContent = "Listen to the audio and enter your ID:";
+        userIdInput.value = "";
     } else {
         // Letztes Captcha abgeschlossen
-        captchaCounter.textContent = `Alle Captchas gelöst! 🎉`;
-        taskText.textContent = "Du hast alle Captchas erfolgreich bearbeitet.";
+        captchaCounter.textContent = "All captchas completed! 🎉";
+        taskText.textContent = "You have successfully completed all captchas.";
         userIdInput.style.display = "none";
         audioBtn.style.display = "none";
         checkBtn.style.display = "none";
