@@ -1,1 +1,68 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meine coole Website</title>
+    <style>
+        /* Hintergrund und Schrift */
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(120deg, #4facfe, #00f2fe);
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            text-align: center;
+        }
+
+        /* Überschrift */
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+            animation: fadeIn 2s ease-in-out;
+        }
+
+        /* Untertitel */
+        p {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            animation: fadeIn 2s ease-in-out 0.5s;
+        }
+
+        /* Button */
+        .btn {
+            padding: 1rem 2rem;
+            background-color: #fff;
+            color: #4facfe;
+            border: none;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background-color: #4facfe;
+            color: #fff;
+            transform: scale(1.1);
+        }
+
+        /* Animation */
+        @keyframes fadeIn {
+            0% { opacity: 0; transform: translateY(-20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <h1>Willkommen auf meiner Website!</h1>
+    <p>Hier startet dein cooles Webprojekt 😎</p>
+    <button class="btn" onclick="alert('Du hast den Button geklickt!')">Klick mich!</button>
+</body>
+</html>
 
