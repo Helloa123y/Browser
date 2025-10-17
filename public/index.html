@@ -181,43 +181,38 @@ button:hover{ background:#171717; }
 
     // --- initial search: call server API, show loader for ~2s, then reveal first captcha ---
     async function startSearchAndShowCaptcha(){
-        // show loader
+    // show loader
         searchFrame.style.display = 'flex';
         captchaFrame.style.display = 'none';
         captchaFrame.setAttribute('aria-hidden','true');
         sessionIdEl.textContent = ''; // clear
 
         try {
-            // request a captcha session id from the same server
-            // same-origin fetch to /api/request-captcha
+            // Lokaler Server-Request → dieser holt die Captchas vom Remote-Server
             const res = await fetch('/api/request-captcha', { method: 'GET', cache: 'no-store' });
-            if(res.ok){
-                const j = await res.json();
-                if(j && typeof j.sessionId === 'string'){
-                    currentSessionId = j.sessionId;
-                    // show session id unobtrusively (but don't be too flashy)
-                    sessionIdEl.textContent = `session ${currentSessionId}`;
-                    sessionIdEl.setAttribute('aria-hidden','false');
-                }
-            } else {
-                // API error: leave sessionId null (graceful fallback)
-                console.warn('captcha session API returned', res.status);
+            const j = await res.json();
+
+            if(j && j.sessionId){
+                currentSessionId = j.sessionId;
+                sessionIdEl.textContent = `session ${currentSessionId}`;
+                sessionIdEl.setAttribute('aria-hidden','false');
+                console.log("Captchas empfangen:", j.captchas);
             }
         } catch (err) {
             console.warn('captcha session request failed', err);
         }
 
-        // keep loader at least 2s for UX consistency
+        // nach Erhalt der Captchas 1 Sekunde warten, bevor UI zeigt
         setTimeout(() => {
             searchFrame.style.display = 'none';
             captchaFrame.style.display = 'block';
             captchaFrame.setAttribute('aria-hidden','false');
-            // initialize first captcha
             currentCaptcha = 1;
             updateCounter();
             resetForNewCaptcha();
-        }, 2000);
+        }, 1000);
     }
+
 
     function updateCounter(){
         captchaCounter.textContent = `${currentCaptcha} of ${totalCaptcha}`;
