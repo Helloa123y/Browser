@@ -21,7 +21,7 @@
         top: 0; left: 0;
         width: 100%;
         height: 100%;
-        background: rgba(0,0,0,0.7);
+        background: rgba(0,0,0,0.8);
         display: flex;
         justify-content: center;
         align-items: center;
@@ -29,51 +29,58 @@
 
     /* FunCaptcha Box */
     #funCaptchaBox {
-        background: #1f1f1f;
-        padding: 20px 30px;
-        border-radius: 12px;
+        background: #000;
+        padding: 25px;
         text-align: center;
-        width: 320px;
+        width: 350px;
+        border: 2px solid #fff;
+        box-sizing: border-box;
     }
 
     #funCaptchaBox h2 {
         margin-bottom: 15px;
-        font-size: 1.4rem;
-        color: #4facfe;
+        font-size: 1.5rem;
+        color: #fff;
     }
 
     #funCaptchaBox input[type="number"] {
         width: 60px;
         padding: 5px;
         font-size: 1rem;
-        border-radius: 6px;
-        border: 1px solid #333;
-        margin-bottom: 10px;
+        border: 2px solid #fff;
+        margin-bottom: 15px;
         text-align: center;
+        background: #000;
+        color: #fff;
     }
 
-    #funCaptchaBox button {
+    button {
         padding: 10px 20px;
         margin: 5px;
-        border-radius: 8px;
-        border: none;
-        background-color: #4facfe;
+        border: 2px solid #fff;
+        background-color: #000;
         color: #fff;
         cursor: pointer;
         font-weight: bold;
         transition: 0.2s;
     }
 
-    #funCaptchaBox button:hover {
-        background-color: #00f2fe;
+    button:hover {
+        background-color: #fff;
+        color: #000;
     }
 
     label {
         display: block;
-        margin-top: 10px;
-        font-size: 0.9rem;
+        margin-top: 15px;
+        font-size: 0.95rem;
+        color: #fff;
     }
 
+    input[type="range"] {
+        width: 100%;
+        margin-top: 5px;
+    }
 </style>
 </head>
 <body>
@@ -86,15 +93,11 @@
         <input type="number" id="numberInput" placeholder="0" />
 
         <div>
-            <button onclick="playAudio()">🔊 Sound abspielen</button>
+            <button id="audioBtn">🔊 Play/Pause Audio</button>
         </div>
 
-        <label>Audio-Position (Sekunden):
-            <input type="number" id="audioPosition" value="0" step="0.1" />
-        </label>
-
         <label>Audio-Geschwindigkeit:
-            <input type="number" id="audioSpeed" value="1" step="0.1" />
+            <input type="range" id="audioSpeed" min="0.5" max="2" step="0.05" value="1">
         </label>
 
         <div>
@@ -111,22 +114,25 @@
 <script>
 const audio = document.getElementById('testAudio');
 const input = document.getElementById('numberInput');
-const posInput = document.getElementById('audioPosition');
-const speedInput = document.getElementById('audioSpeed');
+const speedSlider = document.getElementById('audioSpeed');
 const taskText = document.getElementById('taskText');
+const audioBtn = document.getElementById('audioBtn');
 
 // Zufallszahl generieren (die "Lösung")
 const targetNumber = Math.floor(Math.random() * 10) + 1;
 taskText.textContent = `Gib die Zahl ein, die du hörst (1-10):`;
 
-function playAudio() {
-    const pos = parseFloat(posInput.value) || 0;
-    const speed = parseFloat(speedInput.value) || 1;
+// Play/Pause Button
+audioBtn.addEventListener('click', () => {
+    audio.playbackRate = parseFloat(speedSlider.value);
+    if(audio.paused) audio.play();
+    else audio.pause();
+});
 
-    audio.currentTime = pos;
-    audio.playbackRate = speed;
-    audio.play();
-}
+// Slider ändert Geschwindigkeit in Echtzeit
+speedSlider.addEventListener('input', () => {
+    audio.playbackRate = parseFloat(speedSlider.value);
+});
 
 function checkInput() {
     if (parseInt(input.value) === targetNumber) {
