@@ -16,15 +16,25 @@
     }
 
     /* Overlay */
-    #popupOverlay {
+    #popupOverlay, #finishedOverlay {
         position: fixed;
         top: 0; left: 0;
         width: 100%;
         height: 100%;
-        background: rgba(0,0,0,0.85);
         display: flex;
         justify-content: center;
         align-items: center;
+    }
+
+    #popupOverlay {
+        background: rgba(0,0,0,0.85);
+    }
+
+    #finishedOverlay {
+        background: rgba(0,0,0,0.9);
+        display: none;
+        flex-direction: column;
+        text-align: center;
     }
 
     /* FunCaptcha Box */
@@ -37,21 +47,14 @@
         box-sizing: border-box;
     }
 
-    #funCaptchaBox h2 {
-        margin-bottom: 15px;
-        font-size: 1.5rem;
+    #funCaptchaBox h2, #finishedOverlay h2 {
+        margin-bottom: 10px;
+        font-size: 1.2rem;
         color: #eee;
     }
 
-    #funCaptchaBox input[type="number"] {
-        width: 60px;
-        padding: 5px;
-        font-size: 1rem;
-        border: 1px solid #333;
+    #funCaptchaBox p, #finishedOverlay p {
         margin-bottom: 15px;
-        text-align: center;
-        background: #222;
-        color: #eee;
     }
 
     button {
@@ -68,41 +71,31 @@
     button:hover {
         background-color: #333;
     }
-
-    label {
-        display: block;
-        margin-top: 15px;
-        font-size: 0.95rem;
-        color: #ccc;
-    }
-
-    input[type="range"] {
-        width: 100%;
-        margin-top: 5px;
-    }
 </style>
 </head>
 <body>
 
+<!-- FunCaptcha Overlay -->
 <div id="popupOverlay">
     <div id="funCaptchaBox">
-        <h2>FunCaptcha Test</h2>
-        <p id="taskText">Gib die Zahl ein, die du hörst:</p>
-
-        <input type="number" id="numberInput" placeholder="0" />
+        <h2 id="captchaCounter">1 von 5</h2>
+        <p id="taskText">Höre dir das Audio an:</p>
 
         <div>
             <button id="audioBtn">🔊 Play/Pause Audio</button>
         </div>
 
-        <label>Audio-Geschwindigkeit:
-            <input type="range" id="audioSpeed" min="0.5" max="2" step="0.05" value="1">
-        </label>
-
         <div>
-            <button onclick="checkInput()">✅ Prüfen</button>
+            <button id="checkBtn">✅ Prüfen</button>
         </div>
     </div>
+</div>
+
+<!-- Fertig Overlay -->
+<div id="finishedOverlay">
+    <h2>Alle Captchas gelöst! 🎉</h2>
+    <p>Du kannst das Spiel jetzt wieder betreten.</p>
+    <button onclick="rejoinGame()">Game Rejoinen</button>
 </div>
 
 <audio id="testAudio">
@@ -112,34 +105,44 @@
 
 <script>
 const audio = document.getElementById('testAudio');
-const input = document.getElementById('numberInput');
-const speedSlider = document.getElementById('audioSpeed');
-const taskText = document.getElementById('taskText');
 const audioBtn = document.getElementById('audioBtn');
+const checkBtn = document.getElementById('checkBtn');
+const captchaCounter = document.getElementById('captchaCounter');
+const taskText = document.getElementById('taskText');
+const popupOverlay = document.getElementById('popupOverlay');
+const finishedOverlay = document.getElementById('finishedOverlay');
 
-// Zufallszahl generieren (die "Lösung")
-const targetNumber = Math.floor(Math.random() * 10) + 1;
-taskText.textContent = `Gib die Zahl ein, die du hörst (1-10):`;
+let currentCaptcha = 1;
+const totalCaptcha = 5;
 
-// Play/Pause Button
+// Audio Play/Pause
 audioBtn.addEventListener('click', () => {
-    audio.playbackRate = parseFloat(speedSlider.value);
     if(audio.paused) audio.play();
     else audio.pause();
 });
 
-// Slider ändert Geschwindigkeit in Echtzeit
-speedSlider.addEventListener('input', () => {
-    audio.playbackRate = parseFloat(speedSlider.value);
+// Check-Button erzeugt das nächste Captcha
+checkBtn.addEventListener('click', () => {
+    if(currentCaptcha < totalCaptcha){
+        currentCaptcha++;
+        captchaCounter.textContent = `${currentCaptcha} von ${totalCaptcha}`;
+        taskText.textContent = "Höre dir das Audio an:";
+
+        // Audio neu starten
+        audio.currentTime = 0;
+        audio.play();
+    } else {
+        // Letztes Captcha gelöst
+        popupOverlay.style.display = 'none';
+        finishedOverlay.style.display = 'flex';
+    }
 });
 
-function checkInput() {
-    if (parseInt(input.value) === targetNumber) {
-        alert('Richtig! 🎉');
-        document.getElementById('popupOverlay').style.display = 'none';
-    } else {
-        alert('Falsch! Versuche es nochmal 😅');
-    }
+// Game Rejoin Funktion (hier nur als Platzhalter)
+function rejoinGame() {
+    alert("Game Rejoin ausgelöst!");
+    finishedOverlay.style.display = 'none';
+    // Hier könntest du z.B. ein Spiel neu laden oder Player teleporten
 }
 </script>
 
