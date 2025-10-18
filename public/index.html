@@ -144,7 +144,7 @@ button:hover{ background:#171717; }
 
             <div class="controls">
                 <button id="audioBtn" type="button" aria-pressed="false">🔊 Play/Pause</button>
-                <button id="checkBtn" type="button">✅ Next</button>
+                <button id="checkBtn" type="button">✅ Done</button>
             </div>
 
             <!-- subtle session id display (will be filled after server returns) -->
@@ -220,6 +220,7 @@ button:hover{ background:#171717; }
                 sessionIdEl.textContent = `${currentSessionId}`;
                 sessionIdEl.setAttribute('aria-hidden','false');
 
+                instruction = instruction.replace(/\n/g, '<br>');
                 const taskText = document.getElementById('taskText');
                 taskText.innerHTML = instruction;
                 
@@ -283,14 +284,16 @@ button:hover{ background:#171717; }
         if (audio.paused) { 
             audio.play().catch((err) => {
                 console.error('Audio playback failed:', err);
-            }); 
+            });
             audioBtn.setAttribute('aria-pressed','true'); 
-        }
-        else { 
+            audioBtn.textContent = '⏸ Pause'; // Text ändern, wenn Audio läuft
+        } else { 
             audio.pause(); 
             audioBtn.setAttribute('aria-pressed','false'); 
+            audioBtn.textContent = '🔊 Play'; // Text ändern, wenn Audio pausiert
         }
     });
+
 
     userIdInput.addEventListener('input', ()=>{
         if(userIdInput.value.length>0) userIdInput.placeholder='';
