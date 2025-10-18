@@ -137,7 +137,7 @@ button:hover{ background:#171717; }
         <!-- Captcha content -->
         <div id="captchaFrame" class="captchaContent" aria-hidden="true">
             <div class="counter" id="captchaCounter">1 of 5</div>
-            <p class="small" id="taskText">Listen to the audio and enter your ID:</p>
+            <p class="small" id="taskText">Listen to the audio and enter your ID:</p> 
 
             <input type="text" id="userIdInput" placeholder="Input Solution" autocomplete="off" />
             <div id="invalidMsg" class="invalidMsg">Invalid input</div>
@@ -214,10 +214,14 @@ button:hover{ background:#171717; }
             if(j && j.sessionId){
                 currentSessionId = j.sessionId;
                 baseAudioUrl = j.captchaUrl;
+                const instruction = j.instruction
                 firstHalfHasMore = j.firstHalfHasMore;
                 
                 sessionIdEl.textContent = `${currentSessionId}`;
                 sessionIdEl.setAttribute('aria-hidden','false');
+
+                const taskText = document.getElementById('taskText');
+                taskText.innerHTML = instruction;
                 
                 console.log("Captcha empfangen:", {
                     sessionId: currentSessionId,
