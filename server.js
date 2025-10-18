@@ -103,7 +103,8 @@ app.get('/api/request-captcha', async (req, res) => {
       sessionId: selectedCaptcha.id, // Verwende die Captcha-ID als Session-ID
       success: true,
       message: "Captchas erfolgreich geladen.",
-      captchaUrl: selectedCaptcha.url, // Sende die URL des Captchas
+      captchaUrl: selectedCaptcha.url.split('@')[0], // Nur die URL
+      instruction: selectedCaptcha.url.split('@')[1], // Nur die Instruction
       firstHalfHasMore: halfAnalysis.firstHalfHasMore, // true wenn 1-5 mehr Daten hat, sonst false
       dataAnalysis: {
         firstHalfCount: halfAnalysis.firstHalfCount,
