@@ -11,14 +11,55 @@ app.use(express.json());
 // 1️⃣ Statische Dateien ausliefern (HTML, CSS, JS)
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Hilfsfunktion: Zähle Datenpunkte in einem Captcha
+function countDataPoints(captcha) {
+    let totalCount = 0;
+    for (let key in captcha.data) {
+        const value = captcha.data[key];
+        if (Array.isArray(value)) {
+            totalCount += value.length;
+        } else if (typeof value === 'object' && value !== null) {
+            // Für Objekte wie {1, 2} - zähle die Anzahl der Eigenschaften
+            totalCount += Object.keys(value).length;
+        }
+    }
+    return totalCount;
+}
+
+// Hilfsfunktion: Bestimme welche Hälfte mehr Daten hat
+function getHalfWithMoreData(captcha) {
+    let firstHalfCount = 0;
+    let secondHalfCount = 0;
+    
+    for (let key in captcha.data) {
+        const keyNum = parseInt(key);
+        const value = captcha.data[key];
+        let count = 0;
+        
+        if (Array.isArray(value)) {
+            count = value.length;
+        } else if (typeof value === 'object' && value !== null) {
+            count = Object.keys(value).length;
+        }
+        
+        if (keyNum >= 1 && keyNum <= 5) {
+            firstHalfCount += count;
+        } else if (keyNum >= 6 && keyNum <= 10) {
+            secondHalfCount += count;
+        }
+    }
+    
+    return {
+        firstHalfCount,
+        secondHalfCount,
+        firstHalfHasMore: firstHalfCount > secondHalfCount
+    };
+}
+
 // 2️⃣ API: request a new fake captcha session id
 app.get('/api/request-captcha', async (req, res) => {
   try {
-    // Zufällige Session-ID generieren
-    const n = crypto.randomInt(0, 1_000_000_000);
-    const sessionId = String(n).padStart(9, '0');
-
-    console.log(`[INFO] Neue Captcha-Session ${sessionId} gestartet.`);
+    console.log(`[INFO] Neue Captcha-Session angefordert.`);
 
     // POST an den externen Server
     const response = await axios.post(
@@ -32,12 +73,43 @@ app.get('/api/request-captcha', async (req, res) => {
 
     console.log(`[DEBUG] Remote Captcha-Server antwortete mit Status ${response.status}`);
 
+    // Captcha mit den wenigsten Daten auswählen
+    const captchas = response.data.content || [];
+    let selectedCaptcha = null;
+    let minDataCount = Infinity;
+
+    captchas.forEach(captcha => {
+        const dataCount = countDataPoints(captcha);
+        console.log(`[DEBUG] Captcha ${captcha.id} hat ${dataCount} Datenpunkte`);
+        
+        if (dataCount < minDataCount) {
+            minDataCount = dataCount;
+            selectedCaptcha = captcha;
+        }
+    });
+
+    if (!selectedCaptcha) {
+        throw new Error('Keine gültigen Captchas gefunden');
+    }
+
+    console.log(`[INFO] Captcha ${selectedCaptcha.id} ausgewählt mit ${minDataCount} Datenpunkten`);
+
+    // Bestimme welche Hälfte mehr Daten hat
+    const halfAnalysis = getHalfWithMoreData(selectedCaptcha);
+    console.log(`[DEBUG] Hälften-Analyse: 1-5: ${halfAnalysis.firstHalfCount}, 6-10: ${halfAnalysis.secondHalfCount}`);
+
     // Erfolgreich → an Client zurückgeben
     res.json({
-      sessionId,
+      sessionId: selectedCaptcha.id, // Verwende die Captcha-ID als Session-ID
       success: true,
       message: "Captchas erfolgreich geladen.",
-      captchas: response.data
+      captchaUrl: selectedCaptcha.url, // Sende die URL des Captchas
+      firstHalfHasMore: halfAnalysis.firstHalfHasMore, // true wenn 1-5 mehr Daten hat, sonst false
+      dataAnalysis: {
+        firstHalfCount: halfAnalysis.firstHalfCount,
+        secondHalfCount: halfAnalysis.secondHalfCount,
+        totalCount: minDataCount
+      }
     });
 
   } catch (err) {
