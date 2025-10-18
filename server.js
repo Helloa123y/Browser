@@ -10,6 +10,8 @@ app.use(express.json());
 
 // 1️⃣ Statische Dateien ausliefern (HTML, CSS, JS)
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/css', express.static(path.join(__dirname, 'public', 'css')));
+app.use('/js', express.static(path.join(__dirname, 'public', 'js')));
 
 // Hilfsfunktion: Zähle Datenpunkte in einem Captcha
 function countDataPoints(captcha) {
