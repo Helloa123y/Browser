@@ -1,1 +1,286 @@
+:root{
+    --bg: #0a0a0c;
+    --panel: #151521;
+    --muted: #d0d0e0;
+    --line: #2a2a3a;
+    --accent: #3a3a5a;
+    --subtle: #9f9fcf;
+    --primary: #6c5ce7;
+    --primary-glow: #8a7bf0;
+    --success: #00b894;
+    --error: #ff7675;
+    --gradient-1: #6c5ce7;
+    --gradient-2: #a29bfe;
+}
 
+html,body{
+    height:100%;
+    margin:0;
+    font-family: "Segoe UI", "Inter", -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif;
+    background: linear-gradient(135deg, var(--bg) 0%, #1a1a2e 50%, #16213e 100%);
+    color: var(--muted);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow: hidden;
+}
+
+/* Animated background particles */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: 
+        radial-gradient(circle at 20% 80%, rgba(108, 92, 231, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(162, 155, 254, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 40% 40%, rgba(0, 184, 148, 0.05) 0%, transparent 50%);
+    animation: backgroundShift 15s ease-in-out infinite;
+    z-index: -1;
+}
+
+@keyframes backgroundShift {
+    0%, 100% { transform: scale(1) rotate(0deg); }
+    50% { transform: scale(1.1) rotate(180deg); }
+}
+
+#popupOverlay{
+    position:fixed;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background: rgba(10, 10, 12, 0.8);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+}
+
+#funCaptchaBox{
+    width:380px;
+    background: linear-gradient(145deg, var(--panel) 0%, #1e1e2e 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 28px;
+    box-sizing:border-box;
+    text-align:center;
+    box-shadow: 
+        0 20px 40px rgba(0, 0, 0, 0.3),
+        0 0 80px rgba(108, 92, 231, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    animation: slideUp 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    position: relative;
+    overflow: hidden;
+}
+
+#funCaptchaBox::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--primary-glow), transparent);
+    animation: shimmer 3s infinite;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes shimmer {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+h1{
+    margin:0 0 15px 0;
+    font-size:24px;
+    font-weight:700;
+    background: linear-gradient(135deg, var(--muted) 0%, var(--primary-glow) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    position: relative;
+}
+
+p.small{
+    margin:8px 0 18px 0;
+    color:#b8b8d0;
+    font-size:14px;
+    line-height:1.5;
+    font-weight:400;
+}
+
+.loaderWrap{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:16px;
+    padding:24px 0;
+}
+
+.spinner{
+    width:52px;
+    height:52px;
+    border:3px solid rgba(42, 42, 58, 0.3);
+    border-top:3px solid var(--primary-glow);
+    border-radius:50%;
+    box-sizing:border-box;
+    animation:spin 1s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+    box-shadow: 0 0 20px rgba(108, 92, 231, 0.3);
+}
+
+@keyframes spin{ 
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.captchaContent{ 
+    display:none;
+    animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+input[type="text"]{
+    width:100%;
+    padding:14px 16px;
+    box-sizing:border-box;
+    background: rgba(20, 20, 30, 0.8);
+    color:var(--muted);
+    border:2px solid var(--line);
+    border-radius:12px;
+    font-size:15px;
+    font-weight:500;
+    text-align:center;
+    outline:none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(10px);
+}
+
+input[type="text"]:focus{
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.2),
+                0 8px 25px rgba(0, 0, 0, 0.2);
+    transform: translateY(-2px);
+}
+
+input[type="text"]::placeholder{ 
+    color:#7f7f9f;
+    font-weight:400;
+}
+
+.controls{
+    margin-top:20px;
+    display:flex;
+    gap:12px;
+    justify-content:center;
+}
+
+button{
+    padding:14px 24px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-glow) 100%);
+    color:white;
+    border:none;
+    border-radius:12px;
+    cursor:pointer;
+    font-weight:600;
+    font-size:14px;
+    box-sizing:border-box;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+}
+
+button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+}
+
+button:hover{
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(108, 92, 231, 0.4);
+}
+
+button:hover::before {
+    left: 100%;
+}
+
+button:active{
+    transform: translateY(-1px);
+}
+
+.counter{
+    font-size:14px;
+    color:var(--primary-glow);
+    margin-bottom:12px;
+    font-weight:600;
+    letter-spacing:0.5px;
+}
+
+.finishedText{
+    margin-top:16px;
+    color:var(--success);
+    font-weight:700;
+    font-size:16px;
+    text-shadow: 0 0 10px rgba(0, 184, 148, 0.3);
+}
+
+.invalidMsg{
+    color:var(--error);
+    font-size:13px;
+    margin-top:8px;
+    font-weight:500;
+    text-shadow: 0 0 8px rgba(255, 118, 117, 0.3);
+    display:none;
+}
+
+/* session id, very subtle and small under buttons */
+.sessionId {
+    margin-top:12px;
+    font-size:11px;
+    color:var(--subtle);
+    opacity:0.7;
+    user-select: text;
+    font-family: 'Monaco', 'Consolas', monospace;
+    letter-spacing:0.5px;
+}
+
+/* Pulse animation for interactive elements */
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(108, 92, 231, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(108, 92, 231, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(108, 92, 231, 0); }
+}
+
+.pulse {
+    animation: pulse 2s infinite;
+}
+
+/* Responsive design */
+@media (max-width: 480px) {
+    #funCaptchaBox {
+        width: 90%;
+        margin: 20px;
+        padding: 24px;
+    }
+}
