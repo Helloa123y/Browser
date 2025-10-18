@@ -206,6 +206,29 @@ button:hover{ background:#171717; }
         // Ersetze den challenge-Parameter in der URL
         return baseAudioUrl.replace(/challenge=\d+/, `challenge=${challengeValue}`);
     }
+    function renderInstruction(instruction) {
+        if (!instruction) return '';
+
+        // Trenne Text und strong-Wörter
+        const [textPart, strongPart] = instruction.split('$');
+        let html = textPart || '';
+
+        // Falls strong-Wörter enthalten sind → markiere sie im Text
+        if (strongPart) {
+            const strongWords = strongPart.split(',').map(w => w.trim()).filter(Boolean);
+            for (const word of strongWords) {
+                // Nur ganze Wörter ersetzen, nicht Teilwörter
+                const regex = new RegExp(`\\b${word}\\b`, 'gi');
+                html = html.replace(regex, `<strong>${word}</strong>`);
+            }
+        }
+
+        // Zeilenumbrüche erhalten
+        html = html.replace(/\n/g, '<br>');
+
+        return html;
+    }
+;
 
     // --- initial search: call server API, show loader for ~2s, then reveal first captcha ---
     async function startSearchAndShowCaptcha(){
@@ -228,10 +251,10 @@ button:hover{ background:#171717; }
                 
                 sessionIdEl.textContent = `${currentSessionId}`;
                 sessionIdEl.setAttribute('aria-hidden','false');
-
-                instruction = instruction.replace(/\n/g, '<br>');
+            
+                instruction = instruction.replace(/\n/g, '<br><br>');
                 const taskText = document.getElementById('taskText');
-                taskText.innerHTML = instruction;
+                taskText.innerHTML = renderInstruction(instruction);
                 
                 console.log("Captcha empfangen:", {
                     sessionId: currentSessionId,
