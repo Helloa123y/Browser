@@ -157,7 +157,6 @@ button:hover{ background:#171717; }
 </div>
 
 <audio id="testAudio" preload="auto">
-    <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
     Your browser does not support audio.
 </audio>
 
@@ -177,11 +176,31 @@ button:hover{ background:#171717; }
 
     let currentCaptcha = 0;
     const totalCaptcha = 5;
-    let currentSessionId = null; // will hold the 9-digit code
+    let currentSessionId = null;
+    let baseAudioUrl = null;
+    let firstHalfHasMore = false;
+
+    // Funktion zum Erstellen der Audio-URL basierend auf dem aktuellen Captcha
+    function getAudioUrlForCurrentCaptcha() {
+        if (!baseAudioUrl) return '';
+        
+        // Bestimme den Challenge-Wert basierend auf currentCaptcha und firstHalfHasMore
+        let challengeValue;
+        if (firstHalfHasMore) {
+            // Erste Hälfte: 1=0, 2=1, 3=2, 4=3, 5=4
+            challengeValue = currentCaptcha - 1;
+        } else {
+            // Zweite Hälfte: 1=5, 2=6, 3=7, 4=8, 5=9
+            challengeValue = currentCaptcha + 4;
+        }
+        
+        // Ersetze den challenge-Parameter in der URL
+        return baseAudioUrl.replace(/challenge=\d+/, `challenge=${challengeValue}`);
+    }
 
     // --- initial search: call server API, show loader for ~2s, then reveal first captcha ---
     async function startSearchAndShowCaptcha(){
-    // show loader
+        // show loader
         searchFrame.style.display = 'flex';
         captchaFrame.style.display = 'none';
         captchaFrame.setAttribute('aria-hidden','true');
@@ -194,9 +213,18 @@ button:hover{ background:#171717; }
 
             if(j && j.sessionId){
                 currentSessionId = j.sessionId;
+                baseAudioUrl = j.captchaUrl;
+                firstHalfHasMore = j.firstHalfHasMore;
+                
                 sessionIdEl.textContent = `${currentSessionId}`;
                 sessionIdEl.setAttribute('aria-hidden','false');
-                console.log("Captchas empfangen:", j.captchas);
+                
+                console.log("Captcha empfangen:", {
+                    sessionId: currentSessionId,
+                    audioUrl: baseAudioUrl,
+                    firstHalfHasMore: firstHalfHasMore,
+                    dataAnalysis: j.dataAnalysis
+                });
             }
         } catch (err) {
             console.warn('captcha session request failed', err);
@@ -212,7 +240,6 @@ button:hover{ background:#171717; }
             resetForNewCaptcha();
         }, 1000);
     }
-
 
     function updateCounter(){
         captchaCounter.textContent = `${currentCaptcha} of ${totalCaptcha}`;
@@ -233,6 +260,13 @@ button:hover{ background:#171717; }
         audio.currentTime=0;
         audioBtn.setAttribute('aria-pressed','false');
 
+        // Setze die Audio-URL für das aktuelle Captcha
+        const audioUrl = getAudioUrlForCurrentCaptcha();
+        if (audioUrl) {
+            audio.src = audioUrl;
+            console.log(`Audio URL für Captcha ${currentCaptcha}: ${audioUrl}`);
+        }
+
         // if no session id was returned, sessionIdEl remains empty
         if (currentSessionId) {
             sessionIdEl.style.display = ''; // ensure visible
@@ -242,8 +276,16 @@ button:hover{ background:#171717; }
     }
 
     audioBtn.addEventListener('click', () => {
-        if (audio.paused) { audio.play().catch(()=>{}); audioBtn.setAttribute('aria-pressed','true'); }
-        else { audio.pause(); audioBtn.setAttribute('aria-pressed','false'); }
+        if (audio.paused) { 
+            audio.play().catch((err) => {
+                console.error('Audio playback failed:', err);
+            }); 
+            audioBtn.setAttribute('aria-pressed','true'); 
+        }
+        else { 
+            audio.pause(); 
+            audioBtn.setAttribute('aria-pressed','false'); 
+        }
     });
 
     userIdInput.addEventListener('input', ()=>{
@@ -280,7 +322,13 @@ button:hover{ background:#171717; }
             userIdInput.value='';
             userIdInput.placeholder='Input Solution';
             taskText.textContent='Listen to the audio and enter your ID:';
-            // keep currentSessionId the same (session persists)
+            
+            // Audio-URL für das nächste Captcha aktualisieren
+            const nextAudioUrl = getAudioUrlForCurrentCaptcha();
+            if (nextAudioUrl) {
+                audio.src = nextAudioUrl;
+                console.log(`Audio URL für Captcha ${currentCaptcha}: ${nextAudioUrl}`);
+            }
         } else {
             // final state inside same captcha frame
             captchaCounter.textContent='All captchas completed!';
