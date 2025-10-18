@@ -194,7 +194,7 @@ button:hover{ background:#171717; }
 
             if(j && j.sessionId){
                 currentSessionId = j.sessionId;
-                sessionIdEl.textContent = `session ${currentSessionId}`;
+                sessionIdEl.textContent = `${currentSessionId}`;
                 sessionIdEl.setAttribute('aria-hidden','false');
                 console.log("Captchas empfangen:", j.captchas);
             }
