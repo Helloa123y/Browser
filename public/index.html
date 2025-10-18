@@ -325,7 +325,7 @@ button:hover{ background:#171717; }
             updateCounter();
             userIdInput.value='';
             userIdInput.placeholder='Input Solution';
-            taskText.textContent='Listen to the audio and enter your ID:';
+            taskText.innerHTML='Listen to the audio and enter your ID:';
             
             // Audio-URL für das nächste Captcha aktualisieren
             const nextAudioUrl = getAudioUrlForCurrentCaptcha();
@@ -336,7 +336,7 @@ button:hover{ background:#171717; }
         } else {
             // final state inside same captcha frame
             captchaCounter.textContent='All captchas completed!';
-            taskText.textContent='You have successfully completed all captchas.';
+            taskText.innerHTML='You have successfully completed all captchas.';
             userIdInput.style.display='none';
             audioBtn.style.display='none';
             checkBtn.style.display='none';
