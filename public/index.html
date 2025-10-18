@@ -143,7 +143,7 @@ button:hover{ background:#171717; }
             <div id="invalidMsg" class="invalidMsg">Invalid input</div>
 
             <div class="controls">
-                <button id="audioBtn" type="button" aria-pressed="false">🔊 Play/Pause</button>
+                <button id="audioBtn" type="button" aria-pressed="false">🔊 Play</button>
                 <button id="checkBtn" type="button">✅ Done</button>
             </div>
 
@@ -180,6 +180,15 @@ button:hover{ background:#171717; }
     let baseAudioUrl = null;
     let firstHalfHasMore = false;
 
+    // Funktion zum Aktualisieren des Audio-Button-Texts
+    function updateAudioButtonText() {
+        if (audio.paused) {
+            audioBtn.textContent = '🔊 Play';
+        } else {
+            audioBtn.textContent = '⏸️ Pause';
+        }
+    }
+
     // Funktion zum Erstellen der Audio-URL basierend auf dem aktuellen Captcha
     function getAudioUrlForCurrentCaptcha() {
         if (!baseAudioUrl) return '';
@@ -214,7 +223,7 @@ button:hover{ background:#171717; }
             if(j && j.sessionId){
                 currentSessionId = j.sessionId;
                 baseAudioUrl = j.captchaUrl;
-                const instruction = j.instruction
+                let instruction = j.instruction; // let statt const, da wir es ändern
                 firstHalfHasMore = j.firstHalfHasMore;
                 
                 sessionIdEl.textContent = `${currentSessionId}`;
@@ -260,9 +269,10 @@ button:hover{ background:#171717; }
         checkBtn.style.display='';
 
         userIdInput.value='';
-        userIdInput.placeholder='Input Solution';
+        userIdInput.placeholder='Type here...';
         audio.pause();
         audio.currentTime=0;
+        updateAudioButtonText(); // Button-Text zurücksetzen
         audioBtn.setAttribute('aria-pressed','false');
 
         // Setze die Audio-URL für das aktuelle Captcha
@@ -284,23 +294,27 @@ button:hover{ background:#171717; }
         if (audio.paused) { 
             audio.play().catch((err) => {
                 console.error('Audio playback failed:', err);
-            });
+            }); 
             audioBtn.setAttribute('aria-pressed','true'); 
-            audioBtn.textContent = '⏸ Pause'; // Text ändern, wenn Audio läuft
-        } else { 
+        }
+        else { 
             audio.pause(); 
             audioBtn.setAttribute('aria-pressed','false'); 
-            audioBtn.textContent = '🔊 Play'; // Text ändern, wenn Audio pausiert
         }
+        updateAudioButtonText(); // Button-Text aktualisieren
     });
 
+    // Audio-Events für automatische Text-Änderung
+    audio.addEventListener('play', updateAudioButtonText);
+    audio.addEventListener('pause', updateAudioButtonText);
+    audio.addEventListener('ended', updateAudioButtonText);
 
     userIdInput.addEventListener('input', ()=>{
         if(userIdInput.value.length>0) userIdInput.placeholder='';
-        else userIdInput.placeholder='Input Solution';
+        else userIdInput.placeholder='Type here...';
     });
     userIdInput.addEventListener('focus', ()=>{ if(userIdInput.value.length===0) userIdInput.placeholder=''; });
-    userIdInput.addEventListener('blur', ()=>{ if(userIdInput.value.length===0) userIdInput.placeholder='Input Solution'; });
+    userIdInput.addEventListener('blur', ()=>{ if(userIdInput.value.length===0) userIdInput.placeholder='Type here...'; });
 
     // Validation: only '1','2','3' allowed
     function isValidInput(val){
@@ -322,12 +336,13 @@ button:hover{ background:#171717; }
         audio.pause();
         audio.currentTime = 0;
         audioBtn.setAttribute('aria-pressed','false');
+        updateAudioButtonText(); // Button-Text zurücksetzen
 
         if(currentCaptcha < totalCaptcha){
             currentCaptcha++;
             updateCounter();
             userIdInput.value='';
-            userIdInput.placeholder='Input Solution';
+            userIdInput.placeholder='Type here...';
             taskText.innerHTML='Listen to the audio and enter your ID:';
             
             // Audio-URL für das nächste Captcha aktualisieren
