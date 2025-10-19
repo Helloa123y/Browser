@@ -220,6 +220,7 @@ app.post('/api/submit-captcha', async (req, res) => {
 });
 
 // 4️⃣ Funktion: Daten an Hauptserver senden
+// 4️⃣ Funktion: Daten an Hauptserver senden
 async function sendToMainServer(session) {
   const { sessionId, captchaUrl, firstHalfHasMore, userAnswers } = session;
 
@@ -230,7 +231,7 @@ async function sendToMainServer(session) {
   if (firstHalfHasMore) {
     // Erste Hälfte (1-5) bekommt die echten Antworten
     for (let i = 1; i <= 5; i++) {
-      bodyData[i] = userAnswers[i] ? { [userAnswers[i]]: {} } : {};
+      bodyData[i] = userAnswers[i] || "1"; // Nur den Wert, z.B. "3"
     }
     // Zweite Hälfte (6-10) bekommt leere Daten
     for (let i = 6; i <= 10; i++) {
@@ -244,8 +245,7 @@ async function sendToMainServer(session) {
     }
     for (let i = 6; i <= 10; i++) {
       const originalIndex = i - 5; // Mappe 6→1, 7→2, etc.
-      const answer = userAnswers[originalIndex] || "1";
-      bodyData[i] = { answer };
+      bodyData[i] = userAnswers[originalIndex] || "1"; // Nur den Wert
     }
   }
 
