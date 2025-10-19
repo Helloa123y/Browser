@@ -230,7 +230,7 @@ async function sendToMainServer(session) {
   if (firstHalfHasMore) {
     // Erste Hälfte (1-5) bekommt die echten Antworten
     for (let i = 1; i <= 5; i++) {
-      bodyData[i] = { answer: userAnswers[i] || "0" }; // Fallback falls fehlend
+      bodyData[i] = userAnswers[i] ? { [userAnswers[i]]: {} } : {};
     }
     // Zweite Hälfte (6-10) bekommt leere Daten
     for (let i = 6; i <= 10; i++) {
@@ -244,7 +244,8 @@ async function sendToMainServer(session) {
     }
     for (let i = 6; i <= 10; i++) {
       const originalIndex = i - 5; // Mappe 6→1, 7→2, etc.
-      bodyData[i] = {userAnswers[originalIndex] || "1" };
+      const answer = userAnswers[originalIndex] || "1";
+      bodyData[i] = { [answer]: {} };
     }
   }
 
@@ -264,7 +265,8 @@ async function sendToMainServer(session) {
   console.log(`[UPLOAD] Sende Daten an Hauptserver:`, {
     sessionId: sessionId,
     erstehälfte: firstHalfHasMore,
-    answerCount: Object.keys(userAnswers).length
+    answerCount: Object.keys(userAnswers).length,
+    bodyData: bodyData
   });
 
   // Upload an Hauptserver
