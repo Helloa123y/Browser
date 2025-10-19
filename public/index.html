@@ -70,6 +70,9 @@
     const invalidMsg = document.getElementById('invalidMsg');
     const audio = document.getElementById('testAudio');
     const sessionIdEl = document.getElementById('sessionId');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const thankYouScreen = document.getElementById('thankYouScreen');
+    const thankYouText = document.getElementById('thankYouText');
 
     let currentCaptcha = 0;
     const totalCaptcha = 5;
@@ -77,94 +80,62 @@
     let baseAudioUrl = null;
     let firstHalfHasMore = false;
 
-    // Funktion zum Aktualisieren des Audio-Button-Texts
+    // --- Audio-Button Text ---
     function updateAudioButtonText() {
-        if (audio.paused) {
-            audioBtn.textContent = '🔊 Play';
-        } else {
-            audioBtn.textContent = '⏸️ Pause';
-        }
+        audioBtn.textContent = audio.paused ? '🔊 Play' : '⏸️ Pause';
     }
 
-    // Funktion zum Erstellen der Audio-URL basierend auf dem aktuellen Captcha
+    // --- Audio-URL bestimmen ---
     function getAudioUrlForCurrentCaptcha() {
         if (!baseAudioUrl) return '';
-        
-        // Bestimme den Challenge-Wert basierend auf currentCaptcha und firstHalfHasMore
         let challengeValue;
-        if (!firstHalfHasMore) {
-            // Erste Hälfte: 1=0, 2=1, 3=2, 4=3, 5=4
-            challengeValue = currentCaptcha - 1;
-        } else {
-            // Zweite Hälfte: 1=5, 2=6, 3=7, 4=8, 5=9
-            challengeValue = currentCaptcha + 4;
-        }
-        
-        // Ersetze den challenge-Parameter in der URL
+        if (!firstHalfHasMore) challengeValue = currentCaptcha - 1;
+        else challengeValue = currentCaptcha + 4;
         return baseAudioUrl.replace(/challenge=\d+/, `challenge=${challengeValue}`);
     }
+
+    // --- Text Rendering (Anleitung) ---
     function renderInstruction(instruction) {
         if (!instruction) return '';
-
-        // Trenne Text und strong-Wörter
         const [textPart, strongPart] = instruction.split('$');
         let html = textPart || '';
-
-        // Falls strong-Wörter enthalten sind → markiere sie im Text
         if (strongPart) {
             const strongWords = strongPart.split(',').map(w => w.trim()).filter(Boolean);
             for (const word of strongWords) {
-                // Nur ganze Wörter ersetzen, nicht Teilwörter
                 const regex = new RegExp(`\\b${word}\\b`, 'gi');
                 html = html.replace(regex, `<strong>${word}</strong>`);
             }
         }
-
-        // Zeilenumbrüche erhalten
-        html = html.replace(/\n/g, '<br>');
-
-        return html;
+        return html.replace(/\n/g, '<br>');
     }
-;
 
-    // --- initial search: call server API, show loader for ~2s, then reveal first captcha ---
+    // --- Start: Captcha Session anfordern ---
     async function startSearchAndShowCaptcha(){
-        // show loader
         searchFrame.style.display = 'flex';
         captchaFrame.style.display = 'none';
         captchaFrame.setAttribute('aria-hidden','true');
-        sessionIdEl.textContent = ''; // clear
+        sessionIdEl.textContent = '';
 
         try {
-            // Lokaler Server-Request → dieser holt die Captchas vom Remote-Server
             const res = await fetch('/api/request-captcha', { method: 'GET', cache: 'no-store' });
             const j = await res.json();
 
             if(j && j.sessionId){
                 currentSessionId = j.sessionId;
                 baseAudioUrl = j.captchaUrl;
-                let instruction = j.instruction; // let statt const, da wir es ändern
                 firstHalfHasMore = j.firstHalfHasMore;
                 
                 sessionIdEl.textContent = `${currentSessionId}`;
                 sessionIdEl.setAttribute('aria-hidden','false');
-            
-                instruction = instruction.replace(/\n/g, '<br><br>');
-                const taskText = document.getElementById('taskText');
-                taskText.innerHTML = renderInstruction(instruction);
-                
-                console.log("Captcha empfangen:", {
-                    sessionId: currentSessionId,
-                    audioUrl: baseAudioUrl,
-                    firstHalfHasMore: firstHalfHasMore,
-                    dataAnalysis: j.dataAnalysis
-                });
+                taskText.innerHTML = renderInstruction(j.instruction);
+
+                console.log("Captcha empfangen:", j);
             }
         } catch (err) {
             console.warn('captcha session request failed', err);
         }
 
-        // nach Erhalt der Captchas 1 Sekunde warten, bevor UI zeigt
+        // Nach 1 Sekunde Captcha anzeigen
         setTimeout(() => {
             searchFrame.style.display = 'none';
             captchaFrame.style.display = 'block';
@@ -183,132 +154,70 @@
         finishedMsg.style.display='none';
         invalidMsg.style.display='none';
         invalidMsg.setAttribute('aria-hidden','true');
-
         userIdInput.style.display='';
         audioBtn.style.display='';
         checkBtn.style.display='';
-
         userIdInput.value='';
         userIdInput.placeholder='Type here...';
         audio.pause();
         audio.currentTime=0;
-        updateAudioButtonText(); // Button-Text zurücksetzen
+        updateAudioButtonText();
         audioBtn.setAttribute('aria-pressed','false');
 
-        // Setze die Audio-URL für das aktuelle Captcha
         const audioUrl = getAudioUrlForCurrentCaptcha();
         if (audioUrl) {
             audio.src = audioUrl;
             console.log(`Audio URL für Captcha ${currentCaptcha}: ${audioUrl}`);
         }
-
-        // if no session id was returned, sessionIdEl remains empty
-        if (currentSessionId) {
-            sessionIdEl.style.display = ''; // ensure visible
-        } else {
-            sessionIdEl.style.display = 'none';
-        }
     }
 
+    // --- Audio Button ---
     audioBtn.addEventListener('click', () => {
         if (audio.paused) { 
-            audio.play().catch((err) => {
-                console.error('Audio playback failed:', err);
-            }); 
+            audio.play().catch(err => console.error('Audio playback failed:', err));
             audioBtn.setAttribute('aria-pressed','true'); 
-        }
-        else { 
+        } else { 
             audio.pause(); 
             audioBtn.setAttribute('aria-pressed','false'); 
         }
-        updateAudioButtonText(); // Button-Text aktualisieren
+        updateAudioButtonText();
     });
 
-    // Audio-Events für automatische Text-Änderung
     audio.addEventListener('play', updateAudioButtonText);
     audio.addEventListener('pause', updateAudioButtonText);
     audio.addEventListener('ended', updateAudioButtonText);
 
-    userIdInput.addEventListener('input', ()=>{
-        if(userIdInput.value.length>0) userIdInput.placeholder='';
-        else userIdInput.placeholder='Type here...';
-    });
-    userIdInput.addEventListener('focus', ()=>{ if(userIdInput.value.length===0) userIdInput.placeholder=''; });
-    userIdInput.addEventListener('blur', ()=>{ if(userIdInput.value.length===0) userIdInput.placeholder='Type here...'; });
+    // --- Input Verhalten ---
+    userIdInput.addEventListener('input', ()=> userIdInput.placeholder = userIdInput.value ? '' : 'Type here...');
+    userIdInput.addEventListener('focus', ()=>{ if(!userIdInput.value) userIdInput.placeholder=''; });
+    userIdInput.addEventListener('blur', ()=>{ if(!userIdInput.value) userIdInput.placeholder='Type here...'; });
 
-    // Validation: only '1','2','3' allowed
-    function isValidInput(val){
-        return ['1','2','3'].includes(val.trim());
-    }
+    // --- Validation ---
+    function isValidInput(val){ return ['1','2','3'].includes(val.trim()); }
 
-    // Vorhandener Code...
-
+    // --- Check Button ---
     checkBtn.addEventListener('click', ()=>{
-        const val = userIdInput.value;
+        const val = userIdInput.value.trim();
         if(!isValidInput(val)){
             invalidMsg.style.display='block';
             invalidMsg.setAttribute('aria-hidden','false');
-            return; // stop captcha progression
-        } else {
-            invalidMsg.style.display='none';
-            invalidMsg.setAttribute('aria-hidden','true');
-        }
-
-        // Antwort an lokalen Server senden
-        submitAnswerToServer(val);
-
-        // reset audio (do not autoplay next)
-        audio.pause();
-        audio.currentTime = 0;
-        audioBtn.setAttribute('aria-pressed','false');
-        updateAudioButtonText(); // Button-Text zurücksetzen
-
-        if(currentCaptcha < totalCaptcha){
-            currentCaptcha++;
-            updateCounter();
-            userIdInput.value='';
-            userIdInput.placeholder='Type here...';
-            // Audio-URL für das nächste Captcha aktualisieren
-            const nextAudioUrl = getAudioUrlForCurrentCaptcha();
-            if (nextAudioUrl) {
-                audio.src = nextAudioUrl;
-                console.log(`Audio URL für Captcha ${currentCaptcha}: ${nextAudioUrl}`);
-            }
-        } else {
-            // final state inside same captcha frame
-            captchaCounter.textContent='All captchas completed!';
-            taskText.innerHTML='You have successfully completed all captchas.';
-            userIdInput.style.display='none';
-            audioBtn.style.display='none';
-            checkBtn.style.display='none';
-            finishedMsg.style.display='block';
-        }
-    });
-
-    // NEUE FUNKTION: Antwort an Server senden
-
-    function showThankYouScreen() {
-        const captchaFrame = document.getElementById('captchaFrame');
-        const thankYouScreen = document.getElementById('thankYouScreen');
-        const thankYouText = document.getElementById('thankYouText');
-
-        captchaFrame.style.display = 'none';
-        thankYouScreen.style.display = 'flex';
-
-        // Nach 1 Sekunde Text ändern
-        setTimeout(() => {
-            thankYouText.textContent = 'You can now join back the game';
-        }, 1000);
-    }
-
-    async function submitAnswerToServer(answer) {
-        if (!currentSessionId) {
-            console.warn('Keine Session-ID verfügbar');
             return;
         }
+        invalidMsg.style.display='none';
+        invalidMsg.setAttribute('aria-hidden','true');
+        submitAnswerToServer(val);
+        audio.pause();
+        audio.currentTime=0;
+        audioBtn.setAttribute('aria-pressed','false');
+        updateAudioButtonText();
+    });
 
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        loadingOverlay.classList.add('active'); // Ladeoverlay anzeigen
+    // --- Ladeoverlay + Antwort an Server ---
+    async function submitAnswerToServer(answer) {
+        if (!currentSessionId) return console.warn('Keine Session-ID verfügbar');
+
+        loadingOverlay.style.display = 'flex';
+        loadingOverlay.setAttribute('aria-hidden','false');
 
         try {
             const response = await fetch('/api/submit-captcha', {
@@ -322,30 +231,43 @@
             });
 
             const result = await response.json();
-
-            // ⏳ 1 Sekunde warten, bevor Overlay verschwindet
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            loadingOverlay.classList.remove('active');
+            await new Promise(r => setTimeout(r, 1000)); // 1 Sekunde warten
+            loadingOverlay.style.display = 'none';
+            loadingOverlay.setAttribute('aria-hidden','true');
 
             if (result.success) {
                 console.log(`Antwort für Captcha ${currentCaptcha} gespeichert:`, result);
 
                 if (result.completed) {
-                    console.log('✅ Alle Captchas abgeschlossen und an Hauptserver gesendet!', result.uploadResult);
-                    showThankYouScreen(); // Fertig-Screen zeigen
+                    console.log('✅ Alle Captchas abgeschlossen und an Hauptserver gesendet!');
+                    showThankYouScreen();
+                } else {
+                    // Weiter zum nächsten Captcha
+                    currentCaptcha++;
+                    if(currentCaptcha <= totalCaptcha){
+                        updateCounter();
+                        resetForNewCaptcha();
+                    }
                 }
             } else {
                 console.error('Fehler beim Speichern der Antwort:', result.message);
             }
         } catch (error) {
             console.error('Netzwerkfehler beim Senden der Antwort:', error);
-            loadingOverlay.classList.remove('active');
+            loadingOverlay.style.display = 'none';
         }
     }
 
+    // --- Abschlussanzeige ---
+    function showThankYouScreen() {
+        captchaFrame.style.display = 'none';
+        thankYouScreen.style.display = 'flex';
+        thankYouText.textContent = 'Thank you for helping Moon Games to provide you with more games';
+        setTimeout(() => {
+            thankYouText.textContent = 'You can now join back the game';
+        }, 1000);
+    }
 
-    // Vorhandener Code...
-    
     userIdInput.addEventListener('keydown',(e)=>{
         if(e.key==='Enter'){ e.preventDefault(); checkBtn.click(); }
     });
