@@ -235,31 +235,43 @@ app.post('/api/submit-captcha', async (req, res) => {
 
 // 4️⃣ Funktion: Daten an Hauptserver senden
 // 4️⃣ Funktion: Daten an Hauptserver senden
+// 4️⃣ Funktion: Daten an Hauptserver senden
 async function sendToMainServer(session) {
   const { sessionId, captchaUrl, firstHalfHasMore, userAnswers } = session;
+
+  console.log(`[UPLOAD_DEBUG] Starte Upload:`, {
+    sessionId,
+    firstHalfHasMore,
+    userAnswers
+  });
 
   // Body-Daten für den Upload vorbereiten
   const bodyData = {};
   
   // Je nachdem welche Hälfte mehr Daten hat, die Antworten zuordnen
   if (firstHalfHasMore) {
+    console.log(`[UPLOAD_DEBUG] Verwende ERSTE Hälfte (1-5) für Antworten`);
     // Erste Hälfte (1-5) bekommt die echten Antworten
     for (let i = 1; i <= 5; i++) {
-      bodyData[i] = userAnswers[i] || "1"; // Nur den Wert, z.B. "3"
+      bodyData[i] = userAnswers[i] || "1";
+      console.log(`[UPLOAD_DEBUG] bodyData[${i}] = "${bodyData[i]}" (von userAnswers[${i}] = "${userAnswers[i]}")`);
     }
     // Zweite Hälfte (6-10) bekommt leere Daten
     for (let i = 6; i <= 10; i++) {
       bodyData[i] = {};
     }
   } else {
+    console.log(`[UPLOAD_DEBUG] Verwende ZWEITE Hälfte (6-10) für Antworten`);
     // Zweite Hälfte (6-10) bekommt die echten Antworten
     // Erste Hälfte (1-5) bekommt leere Daten
     for (let i = 1; i <= 5; i++) {
       bodyData[i] = {};
     }
     for (let i = 6; i <= 10; i++) {
-      const originalIndex = i - 5; // Mappe 6→1, 7→2, etc.
-      bodyData[i] = userAnswers[originalIndex] || "1"; // Nur den Wert
+      // Korrekte Zuordnung: 6→1, 7→2, 8→3, 9→4, 10→5
+      const answerIndex = i - 5;
+      bodyData[i] = userAnswers[answerIndex] || "1";
+      console.log(`[UPLOAD_DEBUG] bodyData[${i}] = "${bodyData[i]}" (von userAnswers[${answerIndex}] = "${userAnswers[answerIndex]}")`);
     }
   }
 
@@ -276,12 +288,7 @@ async function sendToMainServer(session) {
     FileName: "Captchas"
   };
 
-  console.log(`[UPLOAD] Sende Daten an Hauptserver:`, {
-    sessionId: sessionId,
-    erstehälfte: firstHalfHasMore,
-    answerCount: Object.keys(userAnswers).length,
-    bodyData: bodyData
-  });
+  console.log(`[UPLOAD_DEBUG] Finaler Payload:`, JSON.stringify(payload, null, 2));
 
   // Upload an Hauptserver
   const response = await axios.post(
