@@ -180,3 +180,57 @@ button:hover{
         padding: 24px;
     }
 }
+/* dein bisheriges CSS */
+@media (max-width: 480px) {
+    #funCaptchaBox {
+        width: 90%;
+        margin: 20px;
+        padding: 24px;
+    }
+}
+
+/* ⬇️ Neues CSS hinzufügen */
+.loadingOverlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(3px);
+    color: #fff;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 999;
+    border-radius: 12px;
+}
+
+.loaderSpinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid #fff;
+    border-top: 4px solid #888;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 12px;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.thankYouScreen {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: #fff;
+    padding: 2rem;
+}
+
+.checkmark {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
