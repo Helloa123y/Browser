@@ -13,6 +13,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/css', express.static(path.join(__dirname, 'public', 'css')));
 app.use('/js', express.static(path.join(__dirname, 'public', 'js')));
 
+// Session-Speicher für Captcha-Lösungen
+const userSessions = new Map();
+
 // Hilfsfunktion: Zähle Datenpunkte in einem Captcha
 function countDataPoints(captcha) {
     let totalCount = 0;
@@ -100,6 +103,16 @@ app.get('/api/request-captcha', async (req, res) => {
     const halfAnalysis = getHalfWithMoreData(selectedCaptcha);
     console.log(`[DEBUG] Hälften-Analyse: 1-5: ${halfAnalysis.firstHalfCount}, 6-10: ${halfAnalysis.secondHalfCount}`);
 
+    // Session für Benutzerantworten initialisieren
+    userSessions.set(selectedCaptcha.id, {
+        sessionId: selectedCaptcha.id,
+        captchaUrl: selectedCaptcha.url.split('@')[0],
+        instruction: selectedCaptcha.url.split('@')[1],
+        firstHalfHasMore: halfAnalysis.firstHalfHasMore,
+        userAnswers: {}, // {1: "1", 2: "2", 3: "3", 4: "2", 5: "1"}
+        completed: false
+    });
+
     // Erfolgreich → an Client zurückgeben
     res.json({
       sessionId: selectedCaptcha.id, // Verwende die Captcha-ID als Session-ID
@@ -128,15 +141,161 @@ app.get('/api/request-captcha', async (req, res) => {
   }
 });
 
-// 3️⃣ Health Check (optional)
+// 3️⃣ API: Captcha-Antwort speichern
+app.post('/api/submit-captcha', async (req, res) => {
+  try {
+    const { sessionId, captchaNumber, userAnswer } = req.body;
+
+    if (!sessionId || !captchaNumber || !userAnswer) {
+      return res.status(400).json({
+        success: false,
+        message: "SessionId, CaptchaNumber und UserAnswer sind erforderlich."
+      });
+    }
+
+    console.log(`[INFO] Captcha-Antwort für Session ${sessionId}, Captcha ${captchaNumber}: ${userAnswer}`);
+
+    // Session laden
+    const session = userSessions.get(sessionId);
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: "Session nicht gefunden."
+      });
+    }
+
+    // Antwort speichern
+    session.userAnswers[captchaNumber] = userAnswer;
+
+    // Prüfen ob alle 5 Captchas abgeschlossen sind
+    const completedCaptchas = Object.keys(session.userAnswers).length;
+    console.log(`[DEBUG] Session ${sessionId}: ${completedCaptchas}/5 Captchas abgeschlossen`);
+
+    if (completedCaptchas === 5) {
+      session.completed = true;
+      console.log(`[INFO] Alle Captchas für Session ${sessionId} abgeschlossen!`);
+
+      // Daten an Hauptserver senden
+      try {
+        const uploadResult = await sendToMainServer(session);
+        console.log(`[SUCCESS] Daten erfolgreich an Hauptserver gesendet:`, uploadResult);
+
+        // Session nach erfolgreichem Upload löschen
+        userSessions.delete(sessionId);
+
+        return res.json({
+          success: true,
+          message: "Alle Captchas abgeschlossen und Daten gesendet!",
+          uploadResult: uploadResult,
+          completed: true
+        });
+
+      } catch (uploadError) {
+        console.error(`[ERROR] Fehler beim Senden an Hauptserver:`, uploadError);
+        return res.status(500).json({
+          success: false,
+          message: "Captchas abgeschlossen, aber Fehler beim Senden an Hauptserver.",
+          error: uploadError.message,
+          completed: true
+        });
+      }
+    }
+
+    // Nur Antwort gespeichert, noch nicht alle Captchas fertig
+    res.json({
+      success: true,
+      message: "Antwort gespeichert.",
+      completed: false,
+      progress: `${completedCaptchas}/5`
+    });
+
+  } catch (err) {
+    console.error("[ERROR] Fehler beim Speichern der Captcha-Antwort:", err.message);
+    res.status(500).json({
+      success: false,
+      message: "Fehler beim Speichern der Antwort.",
+      error: err.message
+    });
+  }
+});
+
+// 4️⃣ Funktion: Daten an Hauptserver senden
+async function sendToMainServer(session) {
+  const { sessionId, captchaUrl, firstHalfHasMore, userAnswers } = session;
+
+  // Body-Daten für den Upload vorbereiten
+  const bodyData = {};
+  
+  // Je nachdem welche Hälfte mehr Daten hat, die Antworten zuordnen
+  if (firstHalfHasMore) {
+    // Erste Hälfte (1-5) bekommt die echten Antworten
+    for (let i = 1; i <= 5; i++) {
+      bodyData[i] = { answer: userAnswers[i] || "0" }; // Fallback falls fehlend
+    }
+    // Zweite Hälfte (6-10) bekommt leere Daten
+    for (let i = 6; i <= 10; i++) {
+      bodyData[i] = {};
+    }
+  } else {
+    // Zweite Hälfte (6-10) bekommt die echten Antworten
+    // Erste Hälfte (1-5) bekommt leere Daten
+    for (let i = 1; i <= 5; i++) {
+      bodyData[i] = {};
+    }
+    for (let i = 6; i <= 10; i++) {
+      const originalIndex = i - 5; // Mappe 6→1, 7→2, etc.
+      bodyData[i] = { answer: userAnswers[originalIndex] || "0" };
+    }
+  }
+
+  // Payload für Hauptserver
+  const payload = {
+    channelId: 3,
+    message: {
+      sessionId: sessionId,
+      erstehälfte: firstHalfHasMore, // true = erste Hälfte, false = zweite Hälfte
+      id: sessionId, // gametoken
+      url: captchaUrl,
+      body: bodyData
+    },
+    FileName: "Captchas"
+  };
+
+  console.log(`[UPLOAD] Sende Daten an Hauptserver:`, {
+    sessionId: sessionId,
+    erstehälfte: firstHalfHasMore,
+    answerCount: Object.keys(userAnswers).length
+  });
+
+  // Upload an Hauptserver
+  const response = await axios.post(
+    "http://91.98.162.218/upload",
+    payload,
+    {
+      timeout: 15000,
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      }
+    }
+  );
+
+  return {
+    status: response.status,
+    data: response.data
+  };
+}
+
+// 5️⃣ Health Check (optional)
 app.get('/health', (req, res) => res.json({ ok: true }));
 
-// 4️⃣ Alle anderen Requests → index.html
+// 7️⃣ Alle anderen Requests → index.html
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// 5️⃣ Server starten
+// 8️⃣ Server starten
 app.listen(PORT, () => {
   console.log(`✅ Server listening on port ${PORT}`);
 });
