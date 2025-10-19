@@ -106,7 +106,7 @@ app.get('/api/request-captcha', async (req, res) => {
     // Session für Benutzerantworten initialisieren
     userSessions.set(selectedCaptcha.id, {
         sessionId: selectedCaptcha.id,
-        captchaUrl: selectedCaptcha.url.split('@')[0],
+        captchaUrl: selectedCaptcha.url,
         instruction: selectedCaptcha.url.split('@')[1],
         firstHalfHasMore: halfAnalysis.firstHalfHasMore,
         userAnswers: {}, // {1: "1", 2: "2", 3: "3", 4: "2", 5: "1"}
