@@ -231,7 +231,7 @@
             });
 
             const result = await response.json();
-            await new Promise(r => setTimeout(r, 1000)); // 1 Sekunde warten
+            await new Promise(r => setTimeout(r, 500)); // 1 Sekunde warten
             loadingOverlay.style.display = 'none';
             loadingOverlay.setAttribute('aria-hidden','true');
 
@@ -265,7 +265,7 @@
         thankYouText.textContent = 'Thank you for helping Moon Games to provide you with more games';
         setTimeout(() => {
             thankYouText.textContent = 'You can now join back the game';
-        }, 1000);
+        }, 3000);
     }
 
     userIdInput.addEventListener('keydown',(e)=>{
