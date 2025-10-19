@@ -36,6 +36,19 @@
 
             <div id="finishedMsg" class="finishedText" style="display:none">All captchas completed! 🎉</div>
         </div>
+        <!-- Ladeoverlay (wird beim Submit gezeigt) -->
+    <div id="loadingOverlay" class="loadingOverlay" aria-hidden="true">
+        <div class="loaderSpinner"></div>
+        <p class="loaderText">Submitting your answer...</p>
+    </div>
+
+    <!-- Abschlussanzeige nach letztem Captcha -->
+    <div id="thankYouScreen" class="thankYouScreen" style="display:none;">
+        <div class="checkmark">✅</div>
+        <p id="thankYouText" class="thankYouText">
+            Thank you for helping Moon Games to provide you with more games
+        </p>
+    </div>
 
     </div>
 </div>
