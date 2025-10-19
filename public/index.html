@@ -273,18 +273,34 @@
     });
 
     // NEUE FUNKTION: Antwort an Server senden
+
+    function showThankYouScreen() {
+        const captchaFrame = document.getElementById('captchaFrame');
+        const thankYouScreen = document.getElementById('thankYouScreen');
+        const thankYouText = document.getElementById('thankYouText');
+
+        captchaFrame.style.display = 'none';
+        thankYouScreen.style.display = 'flex';
+
+        // Nach 1 Sekunde Text ändern
+        setTimeout(() => {
+            thankYouText.textContent = 'You can now join back the game';
+        }, 1000);
+    }
+
     async function submitAnswerToServer(answer) {
         if (!currentSessionId) {
             console.warn('Keine Session-ID verfügbar');
             return;
         }
-    
+
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        loadingOverlay.classList.add('active'); // Ladeoverlay anzeigen
+
         try {
             const response = await fetch('/api/submit-captcha', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-            },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     sessionId: currentSessionId,
                     captchaNumber: currentCaptcha,
@@ -293,26 +309,29 @@
             });
 
             const result = await response.json();
-            
+
+            // ⏳ 1 Sekunde warten, bevor Overlay verschwindet
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            loadingOverlay.classList.remove('active');
+
             if (result.success) {
                 console.log(`Antwort für Captcha ${currentCaptcha} gespeichert:`, result);
-            
+
                 if (result.completed) {
                     console.log('✅ Alle Captchas abgeschlossen und an Hauptserver gesendet!', result.uploadResult);
-                    // Optional: Erfolgsmeldung anzeigen
-                    setTimeout(() => {
-                        alert('Alle Captchas erfolgreich abgeschlossen und übertragen! 🎉');
-                    }, 500);
+                    showThankYouScreen(); // Fertig-Screen zeigen
                 }
             } else {
                 console.error('Fehler beim Speichern der Antwort:', result.message);
             }
         } catch (error) {
             console.error('Netzwerkfehler beim Senden der Antwort:', error);
+            loadingOverlay.classList.remove('active');
         }
     }
 
-// Vorhandener Code...
+
+    // Vorhandener Code...
     
     userIdInput.addEventListener('keydown',(e)=>{
         if(e.key==='Enter'){ e.preventDefault(); checkBtn.click(); }
