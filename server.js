@@ -245,7 +245,7 @@ async function sendToMainServer(session) {
     for (let i = 6; i <= 10; i++) {
       const originalIndex = i - 5; // Mappe 6→1, 7→2, etc.
       const answer = userAnswers[originalIndex] || "1";
-      bodyData[i] = { [answer]: {} };
+      bodyData[i] = { answer };
     }
   }
 
