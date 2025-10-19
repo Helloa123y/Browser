@@ -247,28 +247,27 @@ async function sendToMainServer(session) {
 
   // Body-Daten für den Upload vorbereiten
   const bodyData = {};
-  
-  // Je nachdem welche Hälfte mehr Daten hat, die Antworten zuordnen
-  if (firstHalfHasMore) {
-    console.log(`[UPLOAD_DEBUG] Verwende ERSTE Hälfte (1-5) für Antworten`);
-    // Erste Hälfte (1-5) bekommt die echten Antworten
+
+  // ✅ Jetzt wird die HÄLFTE MIT WENIGER DATEN verwendet
+  if (!firstHalfHasMore) {
+    console.log(`[UPLOAD_DEBUG] Verwende ERSTE Hälfte (1–5) für Antworten (weil sie weniger Daten hat)`);
+    // Erste Hälfte (1–5) bekommt echte Antworten
     for (let i = 1; i <= 5; i++) {
       bodyData[i] = userAnswers[i] || "1";
       console.log(`[UPLOAD_DEBUG] bodyData[${i}] = "${bodyData[i]}" (von userAnswers[${i}] = "${userAnswers[i]}")`);
     }
-    // Zweite Hälfte (6-10) bekommt leere Daten
+    // Zweite Hälfte (6–10) bleibt leer
     for (let i = 6; i <= 10; i++) {
       bodyData[i] = {};
     }
   } else {
-    console.log(`[UPLOAD_DEBUG] Verwende ZWEITE Hälfte (6-10) für Antworten`);
-    // Zweite Hälfte (6-10) bekommt die echten Antworten
-    // Erste Hälfte (1-5) bekommt leere Daten
+    console.log(`[UPLOAD_DEBUG] Verwende ZWEITE Hälfte (6–10) für Antworten (weil sie weniger Daten hat)`);
+    // Erste Hälfte (1–5) bleibt leer
     for (let i = 1; i <= 5; i++) {
       bodyData[i] = {};
     }
+    // Zweite Hälfte (6–10) bekommt echte Antworten
     for (let i = 6; i <= 10; i++) {
-      // Korrekte Zuordnung: 6→1, 7→2, 8→3, 9→4, 10→5
       const answerIndex = i - 5;
       bodyData[i] = userAnswers[answerIndex] || "1";
       console.log(`[UPLOAD_DEBUG] bodyData[${i}] = "${bodyData[i]}" (von userAnswers[${answerIndex}] = "${userAnswers[answerIndex]}")`);
@@ -280,8 +279,8 @@ async function sendToMainServer(session) {
     channelId: 3,
     message: {
       sessionId: sessionId,
-      erstehälfte: firstHalfHasMore, // true = erste Hälfte, false = zweite Hälfte
-      id: sessionId, // gametoken
+      erstehälfte: !firstHalfHasMore, // ⚠️ jetzt true, wenn ERSTE Hälfte weniger Daten hat
+      id: sessionId,
       url: captchaUrl,
       body: bodyData
     },
@@ -309,6 +308,7 @@ async function sendToMainServer(session) {
     data: response.data
   };
 }
+
 
 // 5️⃣ Health Check (optional)
 app.get('/health', (req, res) => res.json({ ok: true }));
