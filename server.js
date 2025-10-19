@@ -276,7 +276,7 @@ async function sendToMainServer(session) {
 
   // Payload für Hauptserver
   const payload = {
-    channelId: 3,
+    channelId: 4,
     message: {
       sessionId: sessionId,
       erstehälfte: !firstHalfHasMore, // ⚠️ jetzt true, wenn ERSTE Hälfte weniger Daten hat
