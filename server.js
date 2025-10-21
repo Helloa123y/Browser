@@ -1,250 +1,151 @@
 const express = require('express');
-const path = require('path');
-const crypto = require('crypto');
 const axios = require('axios');
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// 1️⃣ Statische Dateien ausliefern (HTML, CSS, JS)
-app.use(express.static(path.join(__dirname, 'public')));
-app.use('/css', express.static(path.join(__dirname, 'public', 'css')));
-app.use('/js', express.static(path.join(__dirname, 'public', 'js')));
+// --- Datenstrukturen ---
+const availableCaptchas = []; // Captchas die noch vergeben werden können
+const assignedCaptchas = new Map(); // sessionId -> { player, captcha, timestamp }
+const queue = []; // { ip, timestamp }
+const queueMap = new Map(); // ip -> index im queue-array
 
-// Session-Speicher für Captcha-Lösungen
-const userSessions = new Map();
+const QUEUE_TIMEOUT = 2 * 60 * 1000; // 2 Minuten
 
-// Hilfsfunktion: Zähle Datenpunkte in einem Captcha
-function countDataPoints(captcha) {
-    let totalCount = 0;
-    for (let key in captcha.data) {
-        const value = captcha.data[key];
-        if (Array.isArray(value)) {
-            totalCount += value.length;
-        } else if (typeof value === 'object' && value !== null) {
-            // Für Objekte wie {1, 2} - zähle die Anzahl der Eigenschaften
-            totalCount += Object.keys(value).length;
-        }
-    }
-    return totalCount;
+// --- Hilfsfunktion: IP aus Request ---
+function getClientIp(req) {
+  return req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 }
 
-// 2️⃣ API: request a new fake captcha session id
-app.get('/api/request-captcha', async (req, res) => {
+// --- Neue Captchas laden ---
+async function loadCaptchas() {
   try {
-    console.log(`[INFO] Neue Captcha-Session angefordert.`);
+    const response = await axios.post("http://91.98.162.218/download", {
+      channelId: 2,
+      filename: "Captchas"
+    }, { timeout: 15000 });
 
-    // POST an den externen Server
-    const response = await axios.post(
-      "http://91.98.162.218/download",
-      {
-        channelId: 2,   // Channel 2 → Captchas
-        filename: "Captchas" // kann beliebig sein, wenn der Server es erwartet
-      },
-      { timeout: 15000 }
-    );
-
-    console.log(`[DEBUG] Remote Captcha-Server antwortete mit Status ${response.status}`);
-
-    // Captcha mit den wenigsten Daten auswählen
     const captchas = response.data.content || [];
-    let selectedCaptcha = null;
-    let minDataCount = Infinity;
-
-    captchas.forEach(captcha => {
-        const dataCount = countDataPoints(captcha);
-        console.log(`[DEBUG] Captcha ${captcha.id} hat ${dataCount} Datenpunkte`);
-        
-        if (dataCount < minDataCount) {
-            minDataCount = dataCount;
-            selectedCaptcha = captcha;
-        }
-    });
-
-    if (!selectedCaptcha) {
-        throw new Error('Keine gültigen Captchas gefunden');
-    }
-
-    console.log(`[INFO] Captcha ${selectedCaptcha.id} ausgewählt mit ${minDataCount} Datenpunkten`);
-
-    // Bestimme welche Hälfte mehr Daten hat
-    // Session für Benutzerantworten initialisieren
-    userSessions.set(selectedCaptcha.id, {
-        sessionId: selectedCaptcha.id,
-        captchaUrl: selectedCaptcha.url,
-        userAnswers: {}, // {1: "1", 2: "2", 3: "3", 4: "2", 5: "1"}
-        completed: false
-    });
-
-    // Erfolgreich → an Client zurückgeben
-    res.json({
-      sessionId: selectedCaptcha.id, // Verwende die Captcha-ID als Session-ID
-      success: true,
-      message: "Captchas erfolgreich geladen.",
-      captchaUrl: selectedCaptcha.url.split('@')[0], // Nur die URL
-      instruction: selectedCaptcha.url.split('@')[1], // Nur die Instruction
-      dataAnalysis: {
-        totalCount: minDataCount
+    // Filtere die Captchas, die noch nicht vergeben wurden
+    captchas.forEach(c => {
+      if(!assignedCaptchas.has(c.id) && !availableCaptchas.find(x => x.id === c.id)) {
+        availableCaptchas.push(c);
       }
     });
 
-  } catch (err) {
-    console.error("[ERROR] Fehler beim Captcha-Download:", err.message);
-
-    // Detailierten Fehler an den Client
-    res.status(500).json({
-      success: false,
-      message: "Fehler beim Laden der Captchas.",
-      error: err.message,
-      details: err.response?.data || null
-    });
+    console.log(`[INFO] Loaded ${availableCaptchas.length} captchas`);
+  } catch(err) {
+    console.error('[ERROR] Fehler beim Laden der Captchas:', err.message);
   }
-});
-
-// 3️⃣ API: Captcha-Antwort speichern
-app.post('/api/submit-captcha', async (req, res) => {
-  try {
-    const { sessionId, captchaNumber, userAnswer } = req.body;
-
-    if (!sessionId || !captchaNumber || !userAnswer) {
-      return res.status(400).json({
-        success: false,
-        message: "SessionId, CaptchaNumber und UserAnswer sind erforderlich."
-      });
-    }
-
-    console.log(`[INFO] Captcha-Antwort für Session ${sessionId}, Captcha ${captchaNumber}: ${userAnswer}`);
-
-    // Session laden
-    const session = userSessions.get(sessionId);
-    if (!session) {
-      return res.status(404).json({
-        success: false,
-        message: "Session nicht gefunden."
-      });
-    }
-    // Antwort speichern
-    session.userAnswers[captchaNumber] = userAnswer;
-    const newSession = { ...session, userAnswers: {} };
-    newSession.userAnswers[captchaNumber] = userAnswer;
-    // Prüfen ob alle 5 Captchas abgeschlossen sind
-    const completedCaptchas = Object.keys(session.userAnswers).length;
-    console.log(`[DEBUG] Session ${sessionId}: ${completedCaptchas}/10 Captchas abgeschlossen`);
-
-    const uploadResult = await sendToMainServer(newSession);
-    console.log(`[SUCCESS] Daten erfolgreich an Hauptserver gesendet:`, uploadResult);
-    if (completedCaptchas === 10) {
-      session.completed = true;
-      console.log(`[INFO] Alle Captchas für Session ${sessionId} abgeschlossen!`);
-
-      // Daten an Hauptserver senden
-      try {
-
-        // Session nach erfolgreichem Upload löschen
-        userSessions.delete(sessionId);
-
-        return res.json({
-          success: true,
-          message: "Alle Captchas abgeschlossen und Daten gesendet!",
-          uploadResult: uploadResult,
-          completed: true
-        });
-
-      } catch (uploadError) {
-        console.error(`[ERROR] Fehler beim Senden an Hauptserver:`, uploadError);
-        return res.status(500).json({
-          success: false,
-          message: "Captchas abgeschlossen, aber Fehler beim Senden an Hauptserver.",
-          error: uploadError.message,
-          completed: true
-        });
-      }
-    }
-
-    // Nur Antwort gespeichert, noch nicht alle Captchas fertig
-    res.json({
-      success: true,
-      message: "Antwort gespeichert.",
-      completed: false,
-      progress: `${completedCaptchas}/10`
-    });
-
-  } catch (err) {
-    console.error("[ERROR] Fehler beim Speichern der Captcha-Antwort:", err.message);
-    res.status(500).json({
-      success: false,
-      message: "Fehler beim Speichern der Antwort.",
-      error: err.message
-    });
-  }
-});
-
-// 4️⃣ Funktion: Daten an Hauptserver senden
-// 4️⃣ Funktion: Daten an Hauptserver senden
-// 4️⃣ Funktion: Daten an Hauptserver senden
-async function sendToMainServer(session) {
-  const { sessionId, captchaUrl, userAnswers } = session;
-
-  console.log(`[UPLOAD_DEBUG] Starte Upload:`, {
-    sessionId,
-    userAnswers
-  });
-
-  // Body-Daten für den Upload vorbereiten
-  const bodyData = {};
-
-  // ✅ Jetzt wird die HÄLFTE MIT WENIGER DATEN verwendet
-  for (let i = 1; i <= 10; i++) {
-    bodyData[i] = userAnswers[i];
-    console.log(`[UPLOAD_DEBUG] bodyData[${i}] = "${bodyData[i]}" (von userAnswers[${i}] = "${userAnswers[i]}")`);
-  }
-
-  // Payload für Hauptserver
-  const payload = {
-    channelId: 4,
-    message: {
-      sessionId: sessionId,
-      id: sessionId,
-      url: captchaUrl,
-      body: bodyData
-    },
-    FileName: "Captchas"
-  };
-
-  console.log(`[UPLOAD_DEBUG] Finaler Payload:`, JSON.stringify(payload, null, 2));
-
-  // Upload an Hauptserver
-  const response = await axios.post(
-    "http://91.98.162.218/upload",
-    payload,
-    {
-      timeout: 15000,
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-        "Accept": "application/json",
-        "Content-Type": "application/json"
-      }
-    }
-  );
-
-  return {
-    status: response.status,
-    data: response.data
-  };
 }
 
+// --- Queue-Aufräum-Funktion ---
+function cleanQueue() {
+  const now = Date.now();
+  for(let i = queue.length - 1; i >= 0; i--) {
+    if(now - queue[i].timestamp > QUEUE_TIMEOUT) {
+      const ip = queue[i].ip;
+      queue.splice(i, 1);
+      queueMap.delete(ip);
+      console.log(`[INFO] IP ${ip} aus der Queue entfernt wegen Timeout`);
+    }
+  }
+}
 
-// 5️⃣ Health Check (optional)
-app.get('/health', (req, res) => res.json({ ok: true }));
+// --- Queue-Position holen ---
+function getQueuePosition(ip) {
+  cleanQueue();
+  return queue.findIndex(u => u.ip === ip) + 1; // +1 da Array-Index beginnt bei 0
+}
 
-// 7️⃣ Alle anderen Requests → index.html
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// --- Neue Captcha-Session anfordern ---
+app.get('/api/request-captcha', async (req, res) => {
+  const ip = getClientIp(req);
+
+  // Prüfen, ob Client schon ein Captcha hat
+  for(let [sessionId, info] of assignedCaptchas.entries()) {
+    if(info.ip === ip) {
+      return res.json({
+        success: true,
+        message: "Du hast bereits ein Captcha.",
+        captchaUrl: info.captcha.url,
+        sessionId: sessionId
+      });
+    }
+  }
+
+  cleanQueue();
+
+  if(availableCaptchas.length > 0 && queue.length === 0) {
+    // Direkt ein Captcha vergeben
+    const captcha = availableCaptchas.shift();
+    const sessionId = captcha.id;
+    assignedCaptchas.set(sessionId, { ip, captcha, timestamp: Date.now() });
+    return res.json({
+      success: true,
+      sessionId,
+      captchaUrl: captcha.url,
+      message: "Captcha erhalten!"
+    });
+  } else {
+    // In die Queue einreihen
+    if(!queueMap.has(ip)) {
+      queue.push({ ip, timestamp: Date.now() });
+      queueMap.set(ip, queue.length - 1);
+    }
+    const position = getQueuePosition(ip);
+    return res.json({
+      success: false,
+      message: "Du bist in der Warteschlange",
+      position
+    });
+  }
 });
 
-// 8️⃣ Server starten
+// --- Submit Captcha ---
+app.post('/api/submit-captcha', (req, res) => {
+  const { sessionId, userAnswer } = req.body;
+  const ip = getClientIp(req);
+
+  if(!assignedCaptchas.has(sessionId)) {
+    return res.status(400).json({ success:false, message: "Ungültige Session" });
+  }
+
+  const info = assignedCaptchas.get(sessionId);
+  if(info.ip !== ip) {
+    return res.status(403).json({ success:false, message: "Diese Session gehört nicht dir" });
+  }
+
+  console.log(`[INFO] Captcha ${sessionId} gelöst von IP ${ip}: ${userAnswer}`);
+  
+  assignedCaptchas.delete(sessionId);
+
+  // Prüfen, ob jemand in der Queue wartet → nächste Person bekommt das Captcha
+  if(queue.length > 0) {
+    const nextUser = queue.shift();
+    queueMap.delete(nextUser.ip);
+    const nextCaptcha = availableCaptchas.shift();
+    if(nextCaptcha) {
+      assignedCaptchas.set(nextCaptcha.id, { ip: nextUser.ip, captcha: nextCaptcha, timestamp: Date.now() });
+      console.log(`[INFO] IP ${nextUser.ip} bekommt Captcha ${nextCaptcha.id} aus der Queue`);
+      // Hier könnte man über WebSocket oder Polling den Client informieren
+    }
+  }
+
+  res.json({ success: true, message: "Captcha gespeichert" });
+});
+
+// --- Polling für Queue-Position (Client kann regelmäßig abfragen) ---
+app.get('/api/queue-position', (req, res) => {
+  const ip = getClientIp(req);
+  const pos = getQueuePosition(ip);
+  res.json({ success:true, position: pos });
+});
+
+// --- Server starten ---
 app.listen(PORT, () => {
-  console.log(`✅ Server listening on port ${PORT}`);
+  console.log(`Server listening on port ${PORT}`);
+  setInterval(loadCaptchas, 30 * 1000); // alle 30 Sekunden neue Captchas laden
+  setInterval(cleanQueue, 15 * 1000);   // alle 15 Sekunden Queue aufräumen
 });
