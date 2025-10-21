@@ -252,7 +252,7 @@ async function sendToMainServer(session) {
     console.log(`[UPLOAD_DEBUG] Verwende ERSTE Hälfte (1–5) für Antworten (weil sie weniger Daten hat)`);
     // Erste Hälfte (1–5) bekommt echte Antworten
     for (let i = 1; i <= 5; i++) {
-      bodyData[i] = userAnswers[i] || "1";
+      bodyData[i] = userAnswers[i];
       console.log(`[UPLOAD_DEBUG] bodyData[${i}] = "${bodyData[i]}" (von userAnswers[${i}] = "${userAnswers[i]}")`);
     }
     // Zweite Hälfte (6–10) bleibt leer
@@ -268,7 +268,7 @@ async function sendToMainServer(session) {
     // Zweite Hälfte (6–10) bekommt echte Antworten
     for (let i = 6; i <= 10; i++) {
       const answerIndex = i - 5;
-      bodyData[i] = userAnswers[answerIndex] || "1";
+      bodyData[i] = userAnswers[answerIndex];
       console.log(`[UPLOAD_DEBUG] bodyData[${i}] = "${bodyData[i]}" (von userAnswers[${answerIndex}] = "${userAnswers[answerIndex]}")`);
     }
   }
