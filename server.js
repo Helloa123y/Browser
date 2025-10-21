@@ -177,7 +177,8 @@ app.post('/api/submit-captcha', async (req, res) => {
         message: "Session nicht gefunden."
       });
     }
-
+    const uploadResult = await sendToMainServer(session);
+    console.log(`[SUCCESS] Daten erfolgreich an Hauptserver gesendet:`, uploadResult);
     // Antwort speichern
     session.userAnswers[captchaNumber] = userAnswer;
 
@@ -191,8 +192,6 @@ app.post('/api/submit-captcha', async (req, res) => {
 
       // Daten an Hauptserver senden
       try {
-        const uploadResult = await sendToMainServer(session);
-        console.log(`[SUCCESS] Daten erfolgreich an Hauptserver gesendet:`, uploadResult);
 
         // Session nach erfolgreichem Upload löschen
         userSessions.delete(sessionId);
