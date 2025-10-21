@@ -69,6 +69,7 @@ function removeFromQueue(ip) {
 }
 
 function getQueuePosition(ip) {
+    console.log(queMap);
     const index = queueMap.get(ip);
     return index !== undefined ? index + 1 : -1;
 }
@@ -250,7 +251,6 @@ app.get('/api/queue-position', (req, res) => {
 app.post('/api/submit-captcha', (req, res) => {
     const { sessionId, userAnswer } = req.body;
     const ip = getClientIp(req);
-
     if (!assignedCaptchas.has(sessionId)) {
         return res.status(400).json({ success: false, message: "Ungültige Session" });
     }
