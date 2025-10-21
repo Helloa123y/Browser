@@ -5,8 +5,6 @@ const path = require('path');
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
-
-// --- Statische Dateien ausliefern ---
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', (req, res) => {
@@ -14,194 +12,272 @@ app.get('/', (req, res) => {
 });
 
 // --- Datenstrukturen ---
-const availableCaptchas = []; // Captchas die noch vergeben werden können
-const assignedCaptchas = new Map(); // sessionId -> { player, captcha, timestamp }
-const queue = []; // { ip, timestamp }
-const queueMap = new Map(); // ip -> index im queue-array
+const availableCaptchas = [];
+const assignedCaptchas = new Map();
+const queue = [];
+const queueMap = new Map();
+const userSessions = new Map(); // ip -> { lastRequest, inQueue, assignedSession }
 
-const QUEUE_TIMEOUT = 2 * 60 * 1000; // 2 Minuten
+const QUEUE_TIMEOUT = 2 * 60 * 1000;
 
-// --- Hilfsfunktion: IP aus Request ---
+// --- Verbesserte IP-Erkennung ---
 function getClientIp(req) {
-  return req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    return req.ip || 
+           req.connection.remoteAddress || 
+           req.socket.remoteAddress || 
+           (req.connection.socket ? req.connection.socket.remoteAddress : null);
 }
 
-// --- Queue-Position holen ---
-function getQueuePosition(ip) {
-  cleanQueue();
-  const idx = queue.findIndex(u => u.ip === ip);
-  return idx === -1 ? -1 : idx + 1;
-}
-
-// --- Queue synchronisieren (Map updaten) ---
-function syncQueueMap() {
-  queueMap.clear();
-  queue.forEach((user, idx) => {
-    queueMap.set(user.ip, idx);
-  });
-}
-
-// --- Neue Captchas laden + sofort zuweisen ---
-async function loadCaptchas() {
-  try {
-    const response = await axios.post("http://91.98.162.218/download", {
-      channelId: 2,
-      filename: "Captchas"
-    }, { timeout: 15000 });
-
-    const captchas = response.data.content || [];
-    captchas.forEach(c => {
-      if(!assignedCaptchas.has(c.id) && !availableCaptchas.find(x => x.id === c.id)) {
-        availableCaptchas.push(c);
-      }
+// --- Synchronisierte Queue-Funktionen ---
+function addToQueue(ip) {
+    cleanQueue();
+    
+    // Wenn bereits in Queue, Position aktualisieren
+    if (queueMap.has(ip)) {
+        return getQueuePosition(ip);
+    }
+    
+    const userEntry = { ip, timestamp: Date.now() };
+    queue.push(userEntry);
+    queueMap.set(ip, queue.length - 1);
+    userSessions.set(ip, { 
+        lastRequest: Date.now(), 
+        inQueue: true,
+        assignedSession: null
     });
-
-    console.log(`[INFO] Loaded ${availableCaptchas.length} captchas`);
-
-    // Neue Captchas sofort an Queue-User verteilen
-    while(availableCaptchas.length > 0 && queue.length > 0) {
-      const nextUser = queue.shift();
-      const nextCaptcha = availableCaptchas.shift();
-      assignedCaptchas.set(nextCaptcha.id, { ip: nextUser.ip, captcha: nextCaptcha, timestamp: Date.now() });
-      console.log(`[INFO] IP ${nextUser.ip} bekommt Captcha ${nextCaptcha.id} aus der Queue`);
-    }
-
-    syncQueueMap();
-  } catch(err) {
-    console.error('[ERROR] Fehler beim Laden der Captchas:', err.message);
-  }
+    
+    console.log(`[QUEUE] ${ip} hinzugefügt. Position: ${queue.length}`);
+    return queue.length;
 }
 
-// --- Queue aufräumen + Map synchronisieren ---
-function cleanQueue() {
-  const now = Date.now();
-  for(let i = queue.length - 1; i >= 0; i--) {
-    if(now - queue[i].timestamp > QUEUE_TIMEOUT) {
-      const ip = queue[i].ip;
-      queue.splice(i, 1);
-      queueMap.delete(ip);
-      console.log(`[INFO] IP ${ip} aus der Queue entfernt wegen Timeout`);
-    }
-  }
-  syncQueueMap();
-}
-
-// --- Neue Captcha-Session anfordern ---
-app.get('/api/request-captcha', async (req, res) => {
-  const ip = getClientIp(req);
-
-  // Prüfen, ob Client schon ein Captcha hat
-  for(let [sessionId, info] of assignedCaptchas.entries()) {
-    if(info.ip === ip) {
-      // Entferne aus Queue, falls der Spieler noch drin ist
-      const idx = queueMap.get(ip);
-      if (idx !== undefined) {
-        queue.splice(idx, 1);
+function removeFromQueue(ip) {
+    const index = queueMap.get(ip);
+    if (index !== undefined) {
+        queue.splice(index, 1);
+        queueMap.delete(ip);
+        
+        // Map neu aufbauen
         syncQueueMap();
-      }
-
-      return res.json({
-        success: true,
-        message: "Du hast bereits ein Captcha.",
-        captchaUrl: info.captcha.url,
-        sessionId: sessionId
-      });
+        
+        const userSession = userSessions.get(ip);
+        if (userSession) {
+            userSession.inQueue = false;
+        }
+        
+        console.log(`[QUEUE] ${ip} entfernt. Verbleibende in Queue: ${queue.length}`);
     }
-  }
+}
 
-  cleanQueue();
+function getQueuePosition(ip) {
+    const index = queueMap.get(ip);
+    return index !== undefined ? index + 1 : -1;
+}
 
-  // Prüfen, ob der Spieler schon in der Queue ist
-  let position;
-  if (queueMap.has(ip)) {
-    position = getQueuePosition(ip);
-    return res.json({
-      success: false,
-      message: "Du bist in der Warteschlange",
-      position
+function syncQueueMap() {
+    queueMap.clear();
+    queue.forEach((user, idx) => {
+        queueMap.set(user.ip, idx);
     });
-  }
+}
 
-  // Spieler neu in Queue einreihen
-  queue.push({ ip, timestamp: Date.now() });
-  syncQueueMap();
-  position = getQueuePosition(ip);
+function cleanQueue() {
+    const now = Date.now();
+    let removedCount = 0;
+    
+    for (let i = queue.length - 1; i >= 0; i--) {
+        if (now - queue[i].timestamp > QUEUE_TIMEOUT) {
+            const ip = queue[i].ip;
+            queue.splice(i, 1);
+            queueMap.delete(ip);
+            userSessions.delete(ip);
+            removedCount++;
+            console.log(`[QUEUE] ${ip} wegen Timeout entfernt`);
+        }
+    }
+    
+    if (removedCount > 0) {
+        syncQueueMap();
+    }
+    
+    return removedCount;
+}
 
-  // Prüfen, ob Captchas verfügbar sind und Spieler sofort eins bekommt
-  if (availableCaptchas.length > 0 && queue.length > 0 && position === 1) {
-    const nextUser = queue.shift();
-    queueMap.delete(nextUser.ip);
-    const nextCaptcha = availableCaptchas.shift();
-    assignedCaptchas.set(nextCaptcha.id, { ip: nextUser.ip, captcha: nextCaptcha, timestamp: Date.now() });
-    console.log(`[INFO] IP ${nextUser.ip} bekommt Captcha ${nextCaptcha.id} aus der Queue`);
-    syncQueueMap();
+// --- Captcha sofort an erste Person in Queue geben ---
+function assignCaptchaToFirstInQueue() {
+    if (availableCaptchas.length > 0 && queue.length > 0) {
+        const nextCaptcha = availableCaptchas.shift();
+        const nextUser = queue[0]; // Immer die erste Person nehmen
+        
+        assignedCaptchas.set(nextCaptcha.id, { 
+            ip: nextUser.ip, 
+            captcha: nextCaptcha, 
+            timestamp: Date.now() 
+        });
+        
+        const userSession = userSessions.get(nextUser.ip);
+        if (userSession) {
+            userSession.assignedSession = nextCaptcha.id;
+            userSession.inQueue = false;
+        }
+        
+        console.log(`[ASSIGN] ${nextUser.ip} bekommt Captcha ${nextCaptcha.id}`);
+        removeFromQueue(nextUser.ip);
+        
+        return true;
+    }
+    return false;
+}
 
-    return res.json({
-      success: true,
-      message: "Captcha erhalten!",
-      captchaUrl: nextCaptcha.url,
-      sessionId: nextCaptcha.id
+// --- Captchas laden ---
+async function loadCaptchas() {
+    try {
+        const response = await axios.post("http://91.98.162.218/download", {
+            channelId: 2,
+            filename: "Captchas"
+        }, { timeout: 15000 });
+
+        const captchas = response.data.content || [];
+        let newCaptchas = 0;
+
+        captchas.forEach(c => {
+            if (!assignedCaptchas.has(c.id) && !availableCaptchas.find(x => x.id === c.id)) {
+                availableCaptchas.push(c);
+                newCaptchas++;
+            }
+        });
+
+        console.log(`[LOAD] ${newCaptchas} neue Captchas geladen. Total verfügbar: ${availableCaptchas.length}`);
+
+        // Sofort verfügbare Captchas verteilen
+        let assignedCount = 0;
+        while (assignCaptchaToFirstInQueue()) {
+            assignedCount++;
+        }
+
+        if (assignedCount > 0) {
+            console.log(`[ASSIGN] ${assignedCount} Captchas an Warteschlange verteilt`);
+        }
+
+    } catch(err) {
+        console.error('[ERROR] Fehler beim Laden:', err.message);
+    }
+}
+
+// --- API Endpoints ---
+app.get('/api/request-captcha', async (req, res) => {
+    const ip = getClientIp(req);
+    console.log(`[REQUEST] Captcha-Anfrage von ${ip}`);
+    
+    // User-Session aktualisieren
+    userSessions.set(ip, {
+        lastRequest: Date.now(),
+        inQueue: userSessions.get(ip)?.inQueue || false,
+        assignedSession: userSessions.get(ip)?.assignedSession || null
     });
-  }
 
-  // Ansonsten nur Queue-Position zurückgeben
-  return res.json({
-    success: false,
-    message: "Du bist in der Warteschlange",
-    position
-  });
+    // Prüfen ob bereits ein Captcha zugewiesen ist
+    for (let [sessionId, info] of assignedCaptchas.entries()) {
+        if (info.ip === ip) {
+            console.log(`[ASSIGNED] ${ip} hat bereits Captcha ${sessionId}`);
+            removeFromQueue(ip); // Aus Queue entfernen falls noch drin
+            
+            return res.json({
+                success: true,
+                sessionId: sessionId,
+                captchaUrl: info.captcha.url,
+                instruction: info.captcha.instruction
+            });
+        }
+    }
+
+    cleanQueue();
+
+    // Prüfen ob bereits in Queue
+    const currentPosition = getQueuePosition(ip);
+    if (currentPosition > 0) {
+        console.log(`[QUEUE] ${ip} ist bereits in Position ${currentPosition}`);
+        return res.json({
+            success: false,
+            message: "In Warteschlange",
+            position: currentPosition,
+            queueLength: queue.length
+        });
+    }
+
+    // Neu in Queue aufnehmen
+    const position = addToQueue(ip);
+    
+    // Sofort prüfen ob Captcha verfügbar
+    if (position === 1 && availableCaptchas.length > 0) {
+        console.log(`[IMMEDIATE] ${ip} bekommt sofort Captcha (Position 1)`);
+        assignCaptchaToFirstInQueue();
+        
+        // Nochmal prüfen ob jetzt ein Captcha zugewiesen wurde
+        for (let [sessionId, info] of assignedCaptchas.entries()) {
+            if (info.ip === ip) {
+                return res.json({
+                    success: true,
+                    sessionId: sessionId,
+                    captchaUrl: info.captcha.url,
+                    instruction: info.captcha.instruction
+                });
+            }
+        }
+    }
+
+    console.log(`[QUEUE] ${ip} in Position ${position} von ${queue.length}`);
+    res.json({
+        success: false,
+        message: "In Warteschlange",
+        position: position,
+        queueLength: queue.length
+    });
 });
 
-// --- Submit Captcha ---
-app.post('/api/submit-captcha', (req, res) => {
-  const { sessionId, userAnswer } = req.body;
-  const ip = getClientIp(req);
-
-  if(!assignedCaptchas.has(sessionId)) {
-    return res.status(400).json({ success:false, message: "Ungültige Session" });
-  }
-
-  const info = assignedCaptchas.get(sessionId);
-  if(info.ip !== ip) {
-    return res.status(403).json({ success:false, message: "Diese Session gehört nicht dir" });
-  }
-
-  console.log(`[INFO] Captcha ${sessionId} gelöst von IP ${ip}: ${userAnswer}`);
-  
-  assignedCaptchas.delete(sessionId);
-
-  // Entferne Spieler aus Queue, falls noch drin
-  const idxInQueue = queueMap.get(ip);
-  if (idxInQueue !== undefined) {
-    queue.splice(idxInQueue, 1);
-    syncQueueMap();
-  }
-
-  // Prüfen, ob jemand in der Queue wartet → nächste Person bekommt das Captcha
-  if(queue.length > 0) {
-    const nextUser = queue.shift();
-    queueMap.delete(nextUser.ip);
-    const nextCaptcha = availableCaptchas.shift();
-    if(nextCaptcha) {
-      assignedCaptchas.set(nextCaptcha.id, { ip: nextUser.ip, captcha: nextCaptcha, timestamp: Date.now() });
-      console.log(`[INFO] IP ${nextUser.ip} bekommt Captcha ${nextCaptcha.id} aus der Queue`);
-      syncQueueMap();
-    }
-  }
-
-  res.json({ success: true, message: "Captcha gespeichert" });
-});
-
-// --- Polling für Queue-Position (Client kann regelmäßig abfragen) ---
 app.get('/api/queue-position', (req, res) => {
-  const ip = getClientIp(req);
-  const pos = getQueuePosition(ip);
-  res.json({ success:true, position: pos });
+    const ip = getClientIp(req);
+    const position = getQueuePosition(ip);
+    
+    res.json({ 
+        success: true, 
+        position: position,
+        queueLength: queue.length,
+        estimatedWait: position > 0 ? Math.max(1, position * 0.5) : 0
+    });
+});
+
+// Submit Endpoint (unverändert aber mit Queue-Cleanup)
+app.post('/api/submit-captcha', (req, res) => {
+    const { sessionId, userAnswer } = req.body;
+    const ip = getClientIp(req);
+
+    if (!assignedCaptchas.has(sessionId)) {
+        return res.status(400).json({ success: false, message: "Ungültige Session" });
+    }
+
+    const info = assignedCaptchas.get(sessionId);
+    if (info.ip !== ip) {
+        return res.status(403).json({ success: false, message: "Session gehört nicht dir" });
+    }
+
+    console.log(`[SUBMIT] ${ip} löste Captcha ${sessionId}: ${userAnswer}`);
+    
+    assignedCaptchas.delete(sessionId);
+    removeFromQueue(ip);
+    userSessions.delete(ip);
+
+    // Nächste Person in Queue bedienen
+    if (availableCaptchas.length > 0) {
+        assignCaptchaToFirstInQueue();
+    }
+
+    res.json({ success: true, message: "Captcha gespeichert" });
 });
 
 // --- Server starten ---
 app.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
-  setInterval(loadCaptchas, 30 * 1000); // alle 30 Sekunden neue Captchas laden
-  setInterval(cleanQueue, 15 * 1000);   // alle 15 Sekunden Queue aufräumen
+    console.log(`Server listening on port ${PORT}`);
+    setInterval(loadCaptchas, 30 * 1000);
+    setInterval(cleanQueue, 15 * 1000);
+    loadCaptchas(); // Initial laden
 });
