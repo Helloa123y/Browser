@@ -137,6 +137,7 @@
     async function checkQueuePosition(){
         try{
             const res = await fetch('/api/queue-position');
+            console.log(res);
             const j = await res.json();
             if(j.success){
                 queuePositionEl.textContent = j.position;
