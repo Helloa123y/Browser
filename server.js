@@ -5,6 +5,15 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
+app.use(express.json());
+
+// --- Statische Dateien ausliefern ---
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // --- Datenstrukturen ---
 const availableCaptchas = []; // Captchas die noch vergeben werden können
 const assignedCaptchas = new Map(); // sessionId -> { player, captcha, timestamp }
