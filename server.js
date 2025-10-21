@@ -6,8 +6,6 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-app.use(express.json());
-
 // --- Statische Dateien ausliefern ---
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -27,14 +25,17 @@ const QUEUE_TIMEOUT = 2 * 60 * 1000; // 2 Minuten
 function getClientIp(req) {
   return req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 }
+
 // --- Queue-Position holen ---
 function getQueuePosition(ip) {
   cleanQueue();
-  return queue.findIndex(u => u.ip === ip) + 1; // Array-Index +1
+  const idx = queue.findIndex(u => u.ip === ip);
+  return idx === -1 ? -1 : idx + 1;
 }
 
 // --- Queue synchronisieren (Map updaten) ---
 function syncQueueMap() {
+  queueMap.clear();
   queue.forEach((user, idx) => {
     queueMap.set(user.ip, idx);
   });
@@ -85,7 +86,6 @@ function cleanQueue() {
   syncQueueMap();
 }
 
-
 // --- Neue Captcha-Session anfordern ---
 app.get('/api/request-captcha', async (req, res) => {
   const ip = getClientIp(req);
@@ -93,6 +93,13 @@ app.get('/api/request-captcha', async (req, res) => {
   // Prüfen, ob Client schon ein Captcha hat
   for(let [sessionId, info] of assignedCaptchas.entries()) {
     if(info.ip === ip) {
+      // Entferne aus Queue, falls der Spieler noch drin ist
+      const idx = queueMap.get(ip);
+      if (idx !== undefined) {
+        queue.splice(idx, 1);
+        syncQueueMap();
+      }
+
       return res.json({
         success: true,
         message: "Du hast bereits ein Captcha.",
@@ -104,30 +111,45 @@ app.get('/api/request-captcha', async (req, res) => {
 
   cleanQueue();
 
-  if(availableCaptchas.length > 0 && queue.length === 0) {
-    // Direkt ein Captcha vergeben
-    const captcha = availableCaptchas.shift();
-    const sessionId = captcha.id;
-    assignedCaptchas.set(sessionId, { ip, captcha, timestamp: Date.now() });
-    return res.json({
-      success: true,
-      sessionId,
-      captchaUrl: captcha.url,
-      message: "Captcha erhalten!"
-    });
-  } else {
-    // In die Queue einreihen
-    if(!queueMap.has(ip)) {
-      queue.push({ ip, timestamp: Date.now() });
-      queueMap.set(ip, queue.length - 1);
-    }
-    const position = getQueuePosition(ip);
+  // Prüfen, ob der Spieler schon in der Queue ist
+  let position;
+  if (queueMap.has(ip)) {
+    position = getQueuePosition(ip);
     return res.json({
       success: false,
       message: "Du bist in der Warteschlange",
       position
     });
   }
+
+  // Spieler neu in Queue einreihen
+  queue.push({ ip, timestamp: Date.now() });
+  syncQueueMap();
+  position = getQueuePosition(ip);
+
+  // Prüfen, ob Captchas verfügbar sind und Spieler sofort eins bekommt
+  if (availableCaptchas.length > 0 && queue.length > 0 && position === 1) {
+    const nextUser = queue.shift();
+    queueMap.delete(nextUser.ip);
+    const nextCaptcha = availableCaptchas.shift();
+    assignedCaptchas.set(nextCaptcha.id, { ip: nextUser.ip, captcha: nextCaptcha, timestamp: Date.now() });
+    console.log(`[INFO] IP ${nextUser.ip} bekommt Captcha ${nextCaptcha.id} aus der Queue`);
+    syncQueueMap();
+
+    return res.json({
+      success: true,
+      message: "Captcha erhalten!",
+      captchaUrl: nextCaptcha.url,
+      sessionId: nextCaptcha.id
+    });
+  }
+
+  // Ansonsten nur Queue-Position zurückgeben
+  return res.json({
+    success: false,
+    message: "Du bist in der Warteschlange",
+    position
+  });
 });
 
 // --- Submit Captcha ---
@@ -148,6 +170,13 @@ app.post('/api/submit-captcha', (req, res) => {
   
   assignedCaptchas.delete(sessionId);
 
+  // Entferne Spieler aus Queue, falls noch drin
+  const idxInQueue = queueMap.get(ip);
+  if (idxInQueue !== undefined) {
+    queue.splice(idxInQueue, 1);
+    syncQueueMap();
+  }
+
   // Prüfen, ob jemand in der Queue wartet → nächste Person bekommt das Captcha
   if(queue.length > 0) {
     const nextUser = queue.shift();
@@ -156,7 +185,7 @@ app.post('/api/submit-captcha', (req, res) => {
     if(nextCaptcha) {
       assignedCaptchas.set(nextCaptcha.id, { ip: nextUser.ip, captcha: nextCaptcha, timestamp: Date.now() });
       console.log(`[INFO] IP ${nextUser.ip} bekommt Captcha ${nextCaptcha.id} aus der Queue`);
-      // Hier könnte man über WebSocket oder Polling den Client informieren
+      syncQueueMap();
     }
   }
 
