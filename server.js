@@ -185,7 +185,7 @@ app.post('/api/submit-captcha', async (req, res) => {
 // 4️⃣ Funktion: Daten an Hauptserver senden
 // 4️⃣ Funktion: Daten an Hauptserver senden
 async function sendToMainServer(session) {
-  const { sessionId, captchaUrl, firstHalfHasMore, userAnswers } = session;
+  const { sessionId, captchaUrl, userAnswers } = session;
 
   console.log(`[UPLOAD_DEBUG] Starte Upload:`, {
     sessionId,
@@ -196,13 +196,9 @@ async function sendToMainServer(session) {
   const bodyData = {};
 
   // ✅ Jetzt wird die HÄLFTE MIT WENIGER DATEN verwendet
-  if (!firstHalfHasMore) {
-    console.log(`[UPLOAD_DEBUG] Verwende ERSTE Hälfte (1–5) für Antworten (weil sie weniger Daten hat)`);
-    // Erste Hälfte (1–5) bekommt echte Antworten
-    for (let i = 1; i <= 10; i++) {
-      bodyData[i] = userAnswers[i];
-      console.log(`[UPLOAD_DEBUG] bodyData[${i}] = "${bodyData[i]}" (von userAnswers[${i}] = "${userAnswers[i]}")`);
-    }
+  for (let i = 1; i <= 10; i++) {
+    bodyData[i] = userAnswers[i];
+    console.log(`[UPLOAD_DEBUG] bodyData[${i}] = "${bodyData[i]}" (von userAnswers[${i}] = "${userAnswers[i]}")`);
   }
 
   // Payload für Hauptserver
@@ -210,7 +206,6 @@ async function sendToMainServer(session) {
     channelId: 4,
     message: {
       sessionId: sessionId,
-      erstehälfte: !firstHalfHasMore, // ⚠️ jetzt true, wenn ERSTE Hälfte weniger Daten hat
       id: sessionId,
       url: captchaUrl,
       body: bodyData
