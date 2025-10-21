@@ -78,7 +78,6 @@
     const totalCaptcha = 5;
     let currentSessionId = null;
     let baseAudioUrl = null;
-    let firstHalfHasMore = false;
 
     // --- Audio-Button Text ---
     function updateAudioButtonText() {
@@ -89,8 +88,7 @@
     function getAudioUrlForCurrentCaptcha() {
         if (!baseAudioUrl) return '';
         let challengeValue;
-        if (!firstHalfHasMore) challengeValue = currentCaptcha - 1;
-        else challengeValue = currentCaptcha + 4;
+        challengeValue = currentCaptcha - 1
         return baseAudioUrl.replace(/challenge=\d+/, `challenge=${challengeValue}`);
     }
 
@@ -123,7 +121,6 @@
             if(j && j.sessionId){
                 currentSessionId = j.sessionId;
                 baseAudioUrl = j.captchaUrl;
-                firstHalfHasMore = j.firstHalfHasMore;
                 
                 sessionIdEl.textContent = `${currentSessionId}`;
                 sessionIdEl.setAttribute('aria-hidden','false');
