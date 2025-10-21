@@ -127,7 +127,10 @@
                     queueInterval = setInterval(checkQueuePosition, 5000);
                 }
             } else {
-                alert('Fehler: ' + j.message);
+                queueText.style.display = 'block';
+                queuePositionEl.textContent = j.position || '-';
+                if(queueInterval) clearInterval(queueInterval);
+                queueInterval = setInterval(checkQueuePosition, 5000);
             }
         } catch(err){
             console.error('Fehler beim Captcha-Request:', err);
