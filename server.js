@@ -27,8 +27,20 @@ const QUEUE_TIMEOUT = 2 * 60 * 1000; // 2 Minuten
 function getClientIp(req) {
   return req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 }
+// --- Queue-Position holen ---
+function getQueuePosition(ip) {
+  cleanQueue();
+  return queue.findIndex(u => u.ip === ip) + 1; // Array-Index +1
+}
 
-// --- Neue Captchas laden ---
+// --- Queue synchronisieren (Map updaten) ---
+function syncQueueMap() {
+  queue.forEach((user, idx) => {
+    queueMap.set(user.ip, idx);
+  });
+}
+
+// --- Neue Captchas laden + sofort zuweisen ---
 async function loadCaptchas() {
   try {
     const response = await axios.post("http://91.98.162.218/download", {
@@ -37,7 +49,6 @@ async function loadCaptchas() {
     }, { timeout: 15000 });
 
     const captchas = response.data.content || [];
-    // Filtere die Captchas, die noch nicht vergeben wurden
     captchas.forEach(c => {
       if(!assignedCaptchas.has(c.id) && !availableCaptchas.find(x => x.id === c.id)) {
         availableCaptchas.push(c);
@@ -45,12 +56,22 @@ async function loadCaptchas() {
     });
 
     console.log(`[INFO] Loaded ${availableCaptchas.length} captchas`);
+
+    // Neue Captchas sofort an Queue-User verteilen
+    while(availableCaptchas.length > 0 && queue.length > 0) {
+      const nextUser = queue.shift();
+      const nextCaptcha = availableCaptchas.shift();
+      assignedCaptchas.set(nextCaptcha.id, { ip: nextUser.ip, captcha: nextCaptcha, timestamp: Date.now() });
+      console.log(`[INFO] IP ${nextUser.ip} bekommt Captcha ${nextCaptcha.id} aus der Queue`);
+    }
+
+    syncQueueMap();
   } catch(err) {
     console.error('[ERROR] Fehler beim Laden der Captchas:', err.message);
   }
 }
 
-// --- Queue-Aufräum-Funktion ---
+// --- Queue aufräumen + Map synchronisieren ---
 function cleanQueue() {
   const now = Date.now();
   for(let i = queue.length - 1; i >= 0; i--) {
@@ -61,13 +82,9 @@ function cleanQueue() {
       console.log(`[INFO] IP ${ip} aus der Queue entfernt wegen Timeout`);
     }
   }
+  syncQueueMap();
 }
 
-// --- Queue-Position holen ---
-function getQueuePosition(ip) {
-  cleanQueue();
-  return queue.findIndex(u => u.ip === ip) + 1; // +1 da Array-Index beginnt bei 0
-}
 
 // --- Neue Captcha-Session anfordern ---
 app.get('/api/request-captcha', async (req, res) => {
