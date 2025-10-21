@@ -179,12 +179,13 @@ app.post('/api/submit-captcha', async (req, res) => {
     }
     // Antwort speichern
     session.userAnswers[captchaNumber] = userAnswer;
-
+    const newSession = { ...session, userAnswers: {} };
+    newSession.userAnswers[captchaNumber] = userAnswer;
     // Prüfen ob alle 5 Captchas abgeschlossen sind
     const completedCaptchas = Object.keys(session.userAnswers).length;
     console.log(`[DEBUG] Session ${sessionId}: ${completedCaptchas}/5 Captchas abgeschlossen`);
 
-    const uploadResult = await sendToMainServer(session);
+    const uploadResult = await sendToMainServer(newSession);
     console.log(`[SUCCESS] Daten erfolgreich an Hauptserver gesendet:`, uploadResult);
     if (completedCaptchas === 5) {
       session.completed = true;
