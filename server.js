@@ -168,7 +168,7 @@ app.post('/api/submit-captcha', async (req, res) => {
       success: true,
       message: "Antwort gespeichert.",
       completed: false,
-      progress: `${completedCaptchas}/5`
+      progress: `${completedCaptchas}/10`
     });
 
   } catch (err) {
