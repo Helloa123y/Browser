@@ -16,7 +16,7 @@ const availableCaptchas = [];
 const assignedCaptchas = new Map();
 const queue = [];
 const queueMap = new Map();
-const userSessions = new Map(); // ip -> { lastRequest, inQueue, assignedSession }
+const userSessions = new Map();
 
 const QUEUE_TIMEOUT = 2 * 60 * 1000;
 
@@ -28,26 +28,42 @@ function getClientIp(req) {
            (req.connection.socket ? req.connection.socket.remoteAddress : null);
 }
 
+// --- Debug-Funktion ---
+function debugQueue() {
+    console.log('=== QUEUE DEBUG ===');
+    console.log('Queue Array:', queue.map((user, idx) => `${idx + 1}. ${user.ip}`));
+    console.log('Queue Map:', Object.fromEntries(queueMap));
+    console.log('Available Captchas:', availableCaptchas.length);
+    console.log('Assigned Captchas:', Array.from(assignedCaptchas.entries()).map(([id, info]) => `${id} -> ${info.ip}`));
+    console.log('==================');
+}
+
 // --- Synchronisierte Queue-Funktionen ---
 function addToQueue(ip) {
-    cleanQueue();
-    
-    // Wenn bereits in Queue, Position aktualisieren
+    // Zuerst prüfen ob bereits in Queue (VOR cleanQueue)
     if (queueMap.has(ip)) {
         return getQueuePosition(ip);
     }
     
+    // Dann Queue aufräumen
+    cleanQueue();
+    
+    // Jetzt zur Queue hinzufügen
     const userEntry = { ip, timestamp: Date.now() };
     queue.push(userEntry);
     queueMap.set(ip, queue.length - 1);
+    
     userSessions.set(ip, { 
         lastRequest: Date.now(), 
         inQueue: true,
         assignedSession: null
     });
     
-    console.log(`[QUEUE] ${ip} hinzugefügt. Position: ${queue.length}`);
-    return queue.length;
+    const position = queue.length;
+    console.log(`[QUEUE] ${ip} hinzugefügt. Position: ${position}`);
+    debugQueue();
+    
+    return position;
 }
 
 function removeFromQueue(ip) {
@@ -65,13 +81,15 @@ function removeFromQueue(ip) {
         }
         
         console.log(`[QUEUE] ${ip} entfernt. Verbleibende in Queue: ${queue.length}`);
+        debugQueue();
     }
 }
 
 function getQueuePosition(ip) {
-    console.log('QueueMap:', Object.fromEntries(queueMap));
     const index = queueMap.get(ip);
-    return index !== undefined ? index + 1 : -1;
+    const position = index !== undefined ? index + 1 : -1;
+    console.log(`[POSITION] ${ip} -> Position ${position}, QueueMap:`, Object.fromEntries(queueMap));
+    return position;
 }
 
 function syncQueueMap() {
@@ -98,6 +116,7 @@ function cleanQueue() {
     
     if (removedCount > 0) {
         syncQueueMap();
+        console.log(`[QUEUE] ${removedCount} Timeout-Einträge entfernt`);
     }
     
     return removedCount;
@@ -107,7 +126,7 @@ function cleanQueue() {
 function assignCaptchaToFirstInQueue() {
     if (availableCaptchas.length > 0 && queue.length > 0) {
         const nextCaptcha = availableCaptchas.shift();
-        const nextUser = queue[0]; // Immer die erste Person nehmen
+        const nextUser = queue[0];
         
         assignedCaptchas.set(nextCaptcha.id, { 
             ip: nextUser.ip, 
@@ -167,7 +186,8 @@ async function loadCaptchas() {
 // --- API Endpoints ---
 app.get('/api/request-captcha', async (req, res) => {
     const ip = getClientIp(req);
-    console.log(`[REQUEST] Captcha-Anfrage von ${ip}`);
+    console.log(`\n[REQUEST] Captcha-Anfrage von ${ip}`);
+    debugQueue();
     
     // User-Session aktualisieren
     userSessions.set(ip, {
@@ -180,7 +200,7 @@ app.get('/api/request-captcha', async (req, res) => {
     for (let [sessionId, info] of assignedCaptchas.entries()) {
         if (info.ip === ip) {
             console.log(`[ASSIGNED] ${ip} hat bereits Captcha ${sessionId}`);
-            removeFromQueue(ip); // Aus Queue entfernen falls noch drin
+            removeFromQueue(ip);
             
             return res.json({
                 success: true,
@@ -190,8 +210,6 @@ app.get('/api/request-captcha', async (req, res) => {
             });
         }
     }
-
-    cleanQueue();
 
     // Prüfen ob bereits in Queue
     const currentPosition = getQueuePosition(ip);
@@ -247,10 +265,11 @@ app.get('/api/queue-position', (req, res) => {
     });
 });
 
-// Submit Endpoint (unverändert aber mit Queue-Cleanup)
+// Submit Endpoint
 app.post('/api/submit-captcha', (req, res) => {
     const { sessionId, userAnswer } = req.body;
     const ip = getClientIp(req);
+    
     if (!assignedCaptchas.has(sessionId)) {
         return res.status(400).json({ success: false, message: "Ungültige Session" });
     }
