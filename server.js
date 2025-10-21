@@ -177,8 +177,6 @@ app.post('/api/submit-captcha', async (req, res) => {
         message: "Session nicht gefunden."
       });
     }
-    const uploadResult = await sendToMainServer(session);
-    console.log(`[SUCCESS] Daten erfolgreich an Hauptserver gesendet:`, uploadResult);
     // Antwort speichern
     session.userAnswers[captchaNumber] = userAnswer;
 
@@ -186,6 +184,8 @@ app.post('/api/submit-captcha', async (req, res) => {
     const completedCaptchas = Object.keys(session.userAnswers).length;
     console.log(`[DEBUG] Session ${sessionId}: ${completedCaptchas}/5 Captchas abgeschlossen`);
 
+    const uploadResult = await sendToMainServer(session);
+    console.log(`[SUCCESS] Daten erfolgreich an Hauptserver gesendet:`, uploadResult);
     if (completedCaptchas === 5) {
       session.completed = true;
       console.log(`[INFO] Alle Captchas für Session ${sessionId} abgeschlossen!`);
