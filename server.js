@@ -131,11 +131,11 @@ app.post('/api/submit-captcha', async (req, res) => {
     newSession.userAnswers[captchaNumber] = userAnswer;
     // Prüfen ob alle 5 Captchas abgeschlossen sind
     const completedCaptchas = Object.keys(session.userAnswers).length;
-    console.log(`[DEBUG] Session ${sessionId}: ${completedCaptchas}/5 Captchas abgeschlossen`);
+    console.log(`[DEBUG] Session ${sessionId}: ${completedCaptchas}/10 Captchas abgeschlossen`);
 
     const uploadResult = await sendToMainServer(newSession);
     console.log(`[SUCCESS] Daten erfolgreich an Hauptserver gesendet:`, uploadResult);
-    if (completedCaptchas === 5) {
+    if (completedCaptchas === 10) {
       session.completed = true;
       console.log(`[INFO] Alle Captchas für Session ${sessionId} abgeschlossen!`);
 
@@ -189,7 +189,6 @@ async function sendToMainServer(session) {
 
   console.log(`[UPLOAD_DEBUG] Starte Upload:`, {
     sessionId,
-    firstHalfHasMore,
     userAnswers
   });
 
@@ -200,25 +199,9 @@ async function sendToMainServer(session) {
   if (!firstHalfHasMore) {
     console.log(`[UPLOAD_DEBUG] Verwende ERSTE Hälfte (1–5) für Antworten (weil sie weniger Daten hat)`);
     // Erste Hälfte (1–5) bekommt echte Antworten
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= 10; i++) {
       bodyData[i] = userAnswers[i];
       console.log(`[UPLOAD_DEBUG] bodyData[${i}] = "${bodyData[i]}" (von userAnswers[${i}] = "${userAnswers[i]}")`);
-    }
-    // Zweite Hälfte (6–10) bleibt leer
-    for (let i = 6; i <= 10; i++) {
-      bodyData[i] = {};
-    }
-  } else {
-    console.log(`[UPLOAD_DEBUG] Verwende ZWEITE Hälfte (6–10) für Antworten (weil sie weniger Daten hat)`);
-    // Erste Hälfte (1–5) bleibt leer
-    for (let i = 1; i <= 5; i++) {
-      bodyData[i] = {};
-    }
-    // Zweite Hälfte (6–10) bekommt echte Antworten
-    for (let i = 6; i <= 10; i++) {
-      const answerIndex = i - 5;
-      bodyData[i] = userAnswers[answerIndex];
-      console.log(`[UPLOAD_DEBUG] bodyData[${i}] = "${bodyData[i]}" (von userAnswers[${answerIndex}] = "${userAnswers[answerIndex]}")`);
     }
   }
 
