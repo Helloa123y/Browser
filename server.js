@@ -69,7 +69,7 @@ function removeFromQueue(ip) {
 }
 
 function getQueuePosition(ip) {
-    console.log(queueMap);
+    console.log('QueueMap:', Object.fromEntries(queueMap));
     const index = queueMap.get(ip);
     return index !== undefined ? index + 1 : -1;
 }
