@@ -31,51 +31,6 @@ function countDataPoints(captcha) {
     return totalCount;
 }
 
-// Hilfsfunktion: Bestimme welche Hälfte mehr Daten hat
-function getHalfWithMoreData(captcha) {
-    let firstHalfCount = 0;
-    let secondHalfCount = 0;
-    
-    console.log(`[DEBUG] Analysiere Captcha Daten:`, JSON.stringify(captcha.data, null, 2));
-    
-    for (let key in captcha.data) {
-        const keyNum = parseInt(key);
-        const value = captcha.data[key];
-        
-        let count = 0;
-        if (Array.isArray(value)) {
-            count = value.length;
-            console.log(`[DEBUG] Key ${key}: Array mit ${count} Elementen`);
-        } else if (typeof value === 'object' && value !== null) {
-            count = Object.keys(value).length;
-            console.log(`[DEBUG] Key ${key}: Objekt mit ${count} Eigenschaften`);
-        } else if (value !== null && value !== undefined && value !== "") {
-            count = 1;
-            console.log(`[DEBUG] Key ${key}: Einzelwert "${value}"`);
-        } else {
-            console.log(`[DEBUG] Key ${key}: Leerer Wert`);
-        }
-        
-        if (keyNum >= 1 && keyNum <= 5) {
-            firstHalfCount += count;
-            console.log(`[DEBUG] → Zur ersten Hälfte hinzugefügt: ${count}`);
-        } else if (keyNum >= 6 && keyNum <= 10) {
-            secondHalfCount += count;
-            console.log(`[DEBUG] → Zur zweiten Hälfte hinzugefügt: ${count}`);
-        } else {
-            console.log(`[DEBUG] → Key ${key} außerhalb des Bereichs 1-10`);
-        }
-    }
-    
-    console.log(`[HALF_ANALYSIS] Ergebnis: 1-5: ${firstHalfCount}, 6-10: ${secondHalfCount}, firstHalfHasMore: ${firstHalfCount > secondHalfCount}`);
-    
-    return {
-        firstHalfCount,
-        secondHalfCount,
-        firstHalfHasMore: firstHalfCount > secondHalfCount
-    };
-}
-
 // 2️⃣ API: request a new fake captcha session id
 app.get('/api/request-captcha', async (req, res) => {
   try {
@@ -115,14 +70,10 @@ app.get('/api/request-captcha', async (req, res) => {
     console.log(`[INFO] Captcha ${selectedCaptcha.id} ausgewählt mit ${minDataCount} Datenpunkten`);
 
     // Bestimme welche Hälfte mehr Daten hat
-    const halfAnalysis = getHalfWithMoreData(selectedCaptcha);
-    console.log(`[DEBUG] Hälften-Analyse: 1-5: ${halfAnalysis.firstHalfCount}, 6-10: ${halfAnalysis.secondHalfCount}`);
-
     // Session für Benutzerantworten initialisieren
     userSessions.set(selectedCaptcha.id, {
         sessionId: selectedCaptcha.id,
         captchaUrl: selectedCaptcha.url,
-        firstHalfHasMore: halfAnalysis.firstHalfHasMore,
         userAnswers: {}, // {1: "1", 2: "2", 3: "3", 4: "2", 5: "1"}
         completed: false
     });
@@ -134,10 +85,7 @@ app.get('/api/request-captcha', async (req, res) => {
       message: "Captchas erfolgreich geladen.",
       captchaUrl: selectedCaptcha.url.split('@')[0], // Nur die URL
       instruction: selectedCaptcha.url.split('@')[1], // Nur die Instruction
-      firstHalfHasMore: halfAnalysis.firstHalfHasMore, // true wenn 1-5 mehr Daten hat, sonst false
       dataAnalysis: {
-        firstHalfCount: halfAnalysis.firstHalfCount,
-        secondHalfCount: halfAnalysis.secondHalfCount,
         totalCount: minDataCount
       }
     });
