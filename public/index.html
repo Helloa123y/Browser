@@ -144,7 +144,7 @@
             const j = await res.json();
             if(j.success){
                 queuePositionEl.textContent = j.position;
-                if(j.position === 1){
+                if(j.position === 0){
                     // Jetzt Captcha zuweisen
                     clearInterval(queueInterval);
                     requestCaptcha();
