@@ -12,10 +12,11 @@
     <div id="funCaptchaBox">
         <h1>FunCaptcha</h1>
 
-        <!-- Loader -->
+        <!-- Loader / Warteschlange -->
         <div id="searchFrame" class="loaderWrap" aria-live="polite">
             <div class="spinner" aria-hidden="true"></div>
             <p class="small" id="searchText">Looking for captchas…</p>
+            <p class="small" id="queueText" style="display:none;">Your position in the queue: <span id="queuePosition">-</span></p>
         </div>
 
         <!-- Captcha content -->
@@ -31,35 +32,32 @@
                 <button id="checkBtn" type="button">✅ Done</button>
             </div>
 
-            <!-- subtle session id display (will be filled after server returns) -->
             <div id="sessionId" class="sessionId" aria-hidden="true"></div>
 
             <div id="finishedMsg" class="finishedText" style="display:none">All captchas completed! 🎉</div>
         </div>
-        <!-- Ladeoverlay (wird beim Submit gezeigt) -->
-    <div id="loadingOverlay" class="loadingOverlay" aria-hidden="true">
-        <div class="loaderSpinner"></div>
-        <p class="loaderText">Submitting your answer...</p>
-    </div>
 
-    <!-- Abschlussanzeige nach letztem Captcha -->
-    <div id="thankYouScreen" class="thankYouScreen" style="display:none;">
-        <div class="checkmark">✅</div>
-        <p id="thankYouText" class="thankYouText">
-            Thank you for helping Moon Games to provide you with more games
-        </p>
-    </div>
+        <!-- Ladeoverlay -->
+        <div id="loadingOverlay" class="loadingOverlay" aria-hidden="true">
+            <div class="loaderSpinner"></div>
+            <p class="loaderText">Submitting your answer...</p>
+        </div>
+
+        <div id="thankYouScreen" class="thankYouScreen" style="display:none;">
+            <div class="checkmark">✅</div>
+            <p id="thankYouText" class="thankYouText">Thank you for helping Moon Games to provide you with more games</p>
+        </div>
 
     </div>
 </div>
 
-<audio id="testAudio" preload="auto">
-    Your browser does not support audio.
-</audio>
+<audio id="testAudio" preload="auto"></audio>
 
 <script>
 (function(){
     const searchFrame = document.getElementById('searchFrame');
+    const queueText = document.getElementById('queueText');
+    const queuePositionEl = document.getElementById('queuePosition');
     const captchaFrame = document.getElementById('captchaFrame');
     const captchaCounter = document.getElementById('captchaCounter');
     const taskText = document.getElementById('taskText');
@@ -74,73 +72,91 @@
     const thankYouScreen = document.getElementById('thankYouScreen');
     const thankYouText = document.getElementById('thankYouText');
 
-    let currentCaptcha = 0;
-    const totalCaptcha = 10;
     let currentSessionId = null;
     let baseAudioUrl = null;
+    let currentCaptcha = 0;
+    const totalCaptcha = 10;
+    let queueInterval = null;
 
-    // --- Audio-Button Text ---
     function updateAudioButtonText() {
         audioBtn.textContent = audio.paused ? '🔊 Play' : '⏸️ Pause';
     }
 
-    // --- Audio-URL bestimmen ---
     function getAudioUrlForCurrentCaptcha() {
-        if (!baseAudioUrl) return '';
-        let challengeValue;
-        challengeValue = currentCaptcha - 1
+        if(!baseAudioUrl) return '';
+        let challengeValue = currentCaptcha - 1;
         return baseAudioUrl.replace(/challenge=\d+/, `challenge=${challengeValue}`);
     }
 
-    // --- Text Rendering (Anleitung) ---
     function renderInstruction(instruction) {
         if (!instruction) return '';
         const [textPart, strongPart] = instruction.split('$');
         let html = textPart || '';
-        if (strongPart) {
-            const strongWords = strongPart.split(',').map(w => w.trim()).filter(Boolean);
-            for (const word of strongWords) {
-                const regex = new RegExp(`\\b${word}\\b`, 'gi');
-                html = html.replace(regex, `<strong>${word}</strong>`);
-            }
+        if(strongPart){
+            strongPart.split(',').map(w => w.trim()).filter(Boolean).forEach(word=>{
+                html = html.replace(new RegExp(`\\b${word}\\b`, 'gi'), `<strong>${word}</strong>`);
+            });
         }
-        return html.replace(/\n/g, '<br>');
+        return html.replace(/\n/g,'<br>');
     }
 
-    // --- Start: Captcha Session anfordern ---
-    async function startSearchAndShowCaptcha(){
+    async function requestCaptcha(){
         searchFrame.style.display = 'flex';
         captchaFrame.style.display = 'none';
-        captchaFrame.setAttribute('aria-hidden','true');
+        queueText.style.display = 'none';
         sessionIdEl.textContent = '';
 
         try {
-            const res = await fetch('/api/request-captcha', { method: 'GET', cache: 'no-store' });
+            const res = await fetch('/api/request-captcha');
             const j = await res.json();
 
-            if(j && j.sessionId){
-                currentSessionId = j.sessionId;
-                baseAudioUrl = j.captchaUrl;
-                
-                sessionIdEl.textContent = `${currentSessionId}`;
-                sessionIdEl.setAttribute('aria-hidden','false');
-                taskText.innerHTML = renderInstruction(j.instruction);
+            if(j.success){
+                if(j.sessionId){
+                    // Captcha bekommen
+                    currentSessionId = j.sessionId;
+                    baseAudioUrl = j.captchaUrl;
 
-                console.log("Captcha empfangen:", j);
+                    sessionIdEl.textContent = currentSessionId;
+                    taskText.innerHTML = renderInstruction(j.instruction || '');
+                    showCaptcha();
+                } else {
+                    // In Queue
+                    queueText.style.display = 'block';
+                    queuePositionEl.textContent = j.position || '-';
+                    if(queueInterval) clearInterval(queueInterval);
+                    queueInterval = setInterval(checkQueuePosition, 5000);
+                }
+            } else {
+                alert('Fehler: ' + j.message);
             }
-        } catch (err) {
-            console.warn('captcha session request failed', err);
+        } catch(err){
+            console.error('Fehler beim Captcha-Request:', err);
         }
+    }
 
-        // Nach 1 Sekunde Captcha anzeigen
-        setTimeout(() => {
-            searchFrame.style.display = 'none';
-            captchaFrame.style.display = 'block';
-            captchaFrame.setAttribute('aria-hidden','false');
-            currentCaptcha = 1;
-            updateCounter();
-            resetForNewCaptcha();
-        }, 1000);
+    async function checkQueuePosition(){
+        try{
+            const res = await fetch('/api/queue-position');
+            const j = await res.json();
+            if(j.success){
+                queuePositionEl.textContent = j.position;
+                if(j.position === 1){
+                    // Jetzt Captcha zuweisen
+                    clearInterval(queueInterval);
+                    requestCaptcha();
+                }
+            }
+        } catch(err){
+            console.warn('Queue check failed:', err);
+        }
+    }
+
+    function showCaptcha(){
+        searchFrame.style.display = 'none';
+        captchaFrame.style.display = 'block';
+        currentCaptcha = 1;
+        updateCounter();
+        resetForNewCaptcha();
     }
 
     function updateCounter(){
@@ -150,126 +166,75 @@
     function resetForNewCaptcha(){
         finishedMsg.style.display='none';
         invalidMsg.style.display='none';
-        invalidMsg.setAttribute('aria-hidden','true');
-        userIdInput.style.display='';
-        audioBtn.style.display='';
-        checkBtn.style.display='';
         userIdInput.value='';
-        userIdInput.placeholder='Type here...';
         audio.pause();
         audio.currentTime=0;
         updateAudioButtonText();
         audioBtn.setAttribute('aria-pressed','false');
 
         const audioUrl = getAudioUrlForCurrentCaptcha();
-        if (audioUrl) {
-            audio.src = audioUrl;
-            console.log(`Audio URL für Captcha ${currentCaptcha}: ${audioUrl}`);
-        }
+        if(audioUrl) audio.src = audioUrl;
     }
 
-    // --- Audio Button ---
-    audioBtn.addEventListener('click', () => {
-        if (audio.paused) { 
-            audio.play().catch(err => console.error('Audio playback failed:', err));
-            audioBtn.setAttribute('aria-pressed','true'); 
-        } else { 
-            audio.pause(); 
-            audioBtn.setAttribute('aria-pressed','false'); 
-        }
+    audioBtn.addEventListener('click', ()=>{
+        if(audio.paused) audio.play().catch(err=>console.error(err));
+        else audio.pause();
+        audioBtn.setAttribute('aria-pressed', !audio.paused);
         updateAudioButtonText();
     });
 
-    audio.addEventListener('play', updateAudioButtonText);
-    audio.addEventListener('pause', updateAudioButtonText);
-    audio.addEventListener('ended', updateAudioButtonText);
+    checkBtn.addEventListener('click', submitCaptcha);
 
-    // --- Input Verhalten ---
-    userIdInput.addEventListener('input', ()=> userIdInput.placeholder = userIdInput.value ? '' : 'Type here...');
-    userIdInput.addEventListener('focus', ()=>{ if(!userIdInput.value) userIdInput.placeholder=''; });
-    userIdInput.addEventListener('blur', ()=>{ if(!userIdInput.value) userIdInput.placeholder='Type here...'; });
-
-    // --- Validation ---
-    function isValidInput(val){ return ['1','2','3'].includes(val.trim()); }
-
-    // --- Check Button ---
-    checkBtn.addEventListener('click', ()=>{
+    async function submitCaptcha(){
         const val = userIdInput.value.trim();
-        if(!isValidInput(val)){
+        if(!['1','2','3'].includes(val)){
             invalidMsg.style.display='block';
-            invalidMsg.setAttribute('aria-hidden','false');
             return;
         }
         invalidMsg.style.display='none';
-        invalidMsg.setAttribute('aria-hidden','true');
-        submitAnswerToServer(val);
-        audio.pause();
-        audio.currentTime=0;
-        audioBtn.setAttribute('aria-pressed','false');
-        updateAudioButtonText();
-    });
 
-    // --- Ladeoverlay + Antwort an Server ---
-    async function submitAnswerToServer(answer) {
-        if (!currentSessionId) return console.warn('Keine Session-ID verfügbar');
-
-        loadingOverlay.style.display = 'flex';
-        loadingOverlay.setAttribute('aria-hidden','false');
-
-        try {
-            const response = await fetch('/api/submit-captcha', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+        loadingOverlay.style.display='flex';
+        try{
+            const res = await fetch('/api/submit-captcha', {
+                method:'POST',
+                headers:{ 'Content-Type':'application/json' },
                 body: JSON.stringify({
                     sessionId: currentSessionId,
-                    captchaNumber: currentCaptcha,
-                    userAnswer: answer
+                    userAnswer: val
                 })
             });
-
-            const result = await response.json();
-            await new Promise(r => setTimeout(r, 500)); // 1 Sekunde warten
-            loadingOverlay.style.display = 'none';
-            loadingOverlay.setAttribute('aria-hidden','true');
-
-            if (result.success) {
-                console.log(`Antwort für Captcha ${currentCaptcha} gespeichert:`, result);
-
-                if (result.completed) {
-                    console.log('✅ Alle Captchas abgeschlossen und an Hauptserver gesendet!');
+            const j = await res.json();
+            loadingOverlay.style.display='none';
+            if(j.success){
+                if(j.completed){
                     showThankYouScreen();
                 } else {
-                    // Weiter zum nächsten Captcha
                     currentCaptcha++;
-                    if(currentCaptcha <= totalCaptcha){
-                        updateCounter();
-                        resetForNewCaptcha();
-                    }
+                    updateCounter();
+                    resetForNewCaptcha();
+                    // Automatisch neues Captcha laden falls schon vorhanden
+                    requestCaptcha();
                 }
             } else {
-                console.error('Fehler beim Speichern der Antwort:', result.message);
+                alert('Fehler beim Speichern: ' + j.message);
             }
-        } catch (error) {
-            console.error('Netzwerkfehler beim Senden der Antwort:', error);
-            loadingOverlay.style.display = 'none';
+        } catch(err){
+            loadingOverlay.style.display='none';
+            console.error(err);
         }
     }
 
-    // --- Abschlussanzeige ---
-    function showThankYouScreen() {
-        captchaFrame.style.display = 'none';
-        thankYouScreen.style.display = 'flex';
-        thankYouText.textContent = 'Thank you for helping Moon Games to provide you with more games';
-        setTimeout(() => {
-            thankYouText.textContent = 'You can now return to the game';
-        }, 3000);
+    function showThankYouScreen(){
+        captchaFrame.style.display='none';
+        thankYouScreen.style.display='flex';
+        thankYouText.textContent='Thank you for helping Moon Games to provide you with more games';
     }
 
     userIdInput.addEventListener('keydown',(e)=>{
-        if(e.key==='Enter'){ e.preventDefault(); checkBtn.click(); }
+        if(e.key==='Enter'){ e.preventDefault(); submitCaptcha(); }
     });
 
-    startSearchAndShowCaptcha();
+    requestCaptcha();
 })();
 </script>
 </body>
