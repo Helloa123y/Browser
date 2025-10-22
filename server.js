@@ -137,10 +137,24 @@ app.get('/api/request-captcha', async (req, res) => {
     // Prüfen, ob Captcha bereits zugewiesen
     if (clientAssignments.has(clientId)) {
         const captchaId = clientAssignments.get(clientId);
-        const session = userSessions.get(captchaId);
+        let session = userSessions.get(captchaId);
+
+        // Falls die Session aus irgendeinem Grund fehlt, neu initialisieren
         if (!session) {
-            return res.status(500).json({ success: false, message: "Session nicht gefunden." });
+            const assigned = assignedCaptchas.get(captchaId);
+            if (!assigned) {
+                return res.status(500).json({ success: false, message: "Keine Captcha-Daten vorhanden." });
+            }
+            session = {
+                sessionId: captchaId,
+                captchaUrl: assigned.captcha.url,
+                userAnswers: {},
+                currentCaptchaNumber: 1,
+                completed: false
+            };
+            userSessions.set(captchaId, session);
         }
+
         return res.json({
             success: true,
             sessionId: session.sessionId,
@@ -163,22 +177,26 @@ app.get('/api/request-captcha', async (req, res) => {
     availableCaptchas.splice(availableCaptchas.indexOf(selected), 1);
     assignedCaptchas.set(selected.id, { clientId, captcha: selected });
     clientAssignments.set(clientId, selected.id);
-    
-    userSessions.set(selected.id, {
+
+    // Session für das Captcha erstellen
+    const session = {
         sessionId: selected.id,
         captchaUrl: selected.url,
         userAnswers: {},
-        currentCaptchaNumber: 1, // <--- initialisieren
+        currentCaptchaNumber: 1,
         completed: false
-    });
+    };
+    userSessions.set(selected.id, session);
 
     res.json({
         success: true,
-        sessionId: selected.id,
-        captchaUrl: selected.url,
-        instruction: selected.instruction
+        sessionId: session.sessionId,
+        captchaUrl: session.captchaUrl,
+        instruction: selected.instruction,
+        currentCaptchaNumber: session.currentCaptchaNumber
     });
 });
+
 
 // === Queue-Abfrage ===
 app.get('/api/queue-position', (req, res) => {
