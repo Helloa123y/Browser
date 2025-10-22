@@ -22,7 +22,7 @@ const assignedCaptchas = new Map();
 const clientAssignments = new Map();
 const queue = [];
 const queueMap = new Map();
-const QUEUE_TIMEOUT = 2 * 60 * 1000;
+const QUEUE_TIMEOUT = 30 * 1000;
 
 // === Middleware für Client-ID via Cookie ===
 app.use((req, res, next) => {
