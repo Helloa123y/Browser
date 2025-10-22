@@ -234,7 +234,11 @@ app.post('/api/submit-captcha', async (req, res) => {
 async function sendToMainServer(session) {
     const { sessionId, captchaUrl, userAnswers } = session;
     const bodyData = {};
-    for (let i = 1; i <= 10; i++) bodyData[i] = userAnswers[i];
+    const current = session.currentCaptchaNumber || 1; // aktueller Fortschritt
+    for (let i = 1; i <= 10; i++) {
+        bodyData[i] = i === current ? session.userAnswers[i] : undefined;
+    }
+
 
     const payload = {
         channelId: 4,
