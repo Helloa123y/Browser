@@ -203,7 +203,7 @@
     }
     invalidMsg.style.display = 'none';
     loadingOverlay.style.display = 'flex';
-
+    userIdInput.blur();
     try {
       const res = await fetch('/api/submit-captcha', {
         method: 'POST',
