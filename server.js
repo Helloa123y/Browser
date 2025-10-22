@@ -135,15 +135,19 @@ app.get('/api/request-captcha', async (req, res) => {
     const clientId = req.clientId;
 
     // Prüfen, ob Captcha bereits zugewiesen
-    for (let [id, info] of assignedCaptchas.entries()) {
-        if (info.clientId === clientId) {
-            return res.json({
-                success: true,
-                sessionId: id,
-                captchaUrl: info.captcha.url,
-                instruction: info.captcha.instruction
-            });
+    if (clientAssignments.has(clientId)) {
+        const captchaId = clientAssignments.get(clientId);
+        const session = userSessions.get(captchaId);
+        if (!session) {
+            return res.status(500).json({ success: false, message: "Session nicht gefunden." });
         }
+        return res.json({
+            success: true,
+            sessionId: session.sessionId,
+            captchaUrl: session.captchaUrl,
+            instruction: assignedCaptchas.get(captchaId).captcha.instruction,
+            currentCaptchaNumber: session.currentCaptchaNumber // aktueller Fortschritt
+        });
     }
 
     // Kein Captcha frei → Queue
