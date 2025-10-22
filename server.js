@@ -146,7 +146,7 @@ app.get('/api/request-captcha', async (req, res) => {
             sessionId: session.sessionId,
             captchaUrl: session.captchaUrl,
             instruction: assignedCaptchas.get(captchaId).captcha.instruction,
-            currentCaptchaNumber: session.currentCaptchaNumber // aktueller Fortschritt
+            currentCaptchaNumber: session.currentCaptchaNumber || 1 // aktueller Fortschritt
         });
     }
 
