@@ -227,7 +227,6 @@ app.post('/api/submit-captcha', async (req, res) => {
         // Nummer automatisch aus der Session nehmen
         const currentNumber = session.currentCaptchaNumber; // war vorher undefined
         session.userAnswers[currentNumber] = userAnswer;
-        session.currentCaptchaNumber++;
 
         const completedCount = Object.keys(session.userAnswers).length;
 
@@ -257,7 +256,7 @@ async function sendToMainServer(session) {
     for (let i = 1; i <= 10; i++) {
         bodyData[i] = i === current ? session.userAnswers[i] : undefined;
     }
-
+    session.currentCaptchaNumber++;
 
     const payload = {
         channelId: 4,
