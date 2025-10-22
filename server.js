@@ -253,6 +253,7 @@ async function sendToMainServer(session) {
     const { sessionId, captchaUrl, userAnswers } = session;
     const bodyData = {};
     const current = session.currentCaptchaNumber || 1; // aktueller Fortschritt
+    console.log(current);
     for (let i = 1; i <= 10; i++) {
         bodyData[i] = i === current ? session.userAnswers[i] : undefined;
     }
