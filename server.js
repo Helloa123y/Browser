@@ -182,31 +182,48 @@ app.get('/api/queue-position', (req, res) => {
 // === API: Captcha absenden ===
 app.post('/api/submit-captcha', async (req, res) => {
     try {
-        const { sessionId, captchaNumber, userAnswer } = req.body;
-        if (!sessionId || !captchaNumber || !userAnswer)
-            return res.status(400).json({ success: false, message: "Fehlende Parameter" });
+        const { userAnswer } = req.body;
+        const clientId = req.clientId;
 
-        const session = userSessions.get(sessionId);
-        if (!session) return res.status(404).json({ success: false, message: "Session nicht gefunden" });
+        // Prüfen ob Client ein Captcha hat
+        if (!clientAssignments.has(clientId)) {
+            return res.status(400).json({ success: false, message: "Kein Captcha zugewiesen." });
+        }
 
-        session.userAnswers[captchaNumber] = userAnswer;
+        const captchaId = clientAssignments.get(clientId);
+        const session = userSessions.get(captchaId);
+        if (!session) return res.status(404).json({ success: false, message: "Session nicht gefunden." });
+
+        // Sicherheit: Captcha gehört wirklich diesem Client
+        const assigned = assignedCaptchas.get(captchaId);
+        if (!assigned || assigned.clientId !== clientId)
+            return res.status(403).json({ success: false, message: "Dieses Captcha gehört einem anderen Benutzer" });
+
+        // Nummer automatisch aus der Session nehmen
+        const currentNumber = session.currentCaptchaNumber;
+        session.userAnswers[currentNumber] = userAnswer;
+
+        // Nächste Captcha-Nummer erhöhen
+        session.currentCaptchaNumber++;
+
         const completedCount = Object.keys(session.userAnswers).length;
 
+        // Optional: sofort zum Hauptserver senden
         const uploadResult = await sendToMainServer(session);
-        console.log(`[UPLOAD] Antwort gesendet für ${sessionId}: ${completedCount}/10`);
 
         if (completedCount >= 10) {
-            userSessions.delete(sessionId);
-            assignedCaptchas.delete(sessionId);
+            session.completed = true;
             res.json({ success: true, message: "Alle Captchas abgeschlossen.", completed: true });
         } else {
             res.json({ success: true, message: "Antwort gespeichert.", progress: `${completedCount}/10` });
         }
+
     } catch (err) {
         console.error("[ERROR] Beim Absenden:", err.message);
         res.status(500).json({ success: false, message: "Fehler beim Absenden.", error: err.message });
     }
 });
+
 
 // === Upload zum Hauptserver ===
 async function sendToMainServer(session) {
