@@ -164,6 +164,7 @@ app.get('/api/request-captcha', async (req, res) => {
         sessionId: selected.id,
         captchaUrl: selected.url,
         userAnswers: {},
+        currentCaptchaNumber: 1, // <--- initialisieren
         completed: false
     });
 
@@ -202,10 +203,8 @@ app.post('/api/submit-captcha', async (req, res) => {
             return res.status(403).json({ success: false, message: "Dieses Captcha gehört einem anderen Benutzer" });
 
         // Nummer automatisch aus der Session nehmen
-        const currentNumber = session.currentCaptchaNumber;
+        const currentNumber = session.currentCaptchaNumber; // war vorher undefined
         session.userAnswers[currentNumber] = userAnswer;
-
-        // Nächste Captcha-Nummer erhöhen
         session.currentCaptchaNumber++;
 
         const completedCount = Object.keys(session.userAnswers).length;
