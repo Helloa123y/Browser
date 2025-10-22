@@ -210,9 +210,17 @@ app.get('/api/request-captcha', async (req, res) => {
     }
 
     // Kein Captcha frei → Queue
-    if (availableCaptchas.length === 0) {
+     if (availableCaptchas.length === 0) {
         const position = addToQueue(clientId);
         return res.json({ success: false, message: "In Warteschlange", position });
+    } else {
+        const queueIndex = queueMap.get(clientId);
+        if (queueIndex !== undefined) {
+            queue.splice(queueIndex, 1);
+            queueMap.delete(clientId);
+            console.log(`[QUEUE] ${clientId} aus der Queue entfernt, da Captcha verfügbar ist`);
+            syncQueueMap();
+        }
     }
 
     // Captcha auswählen
