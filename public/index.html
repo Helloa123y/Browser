@@ -228,7 +228,7 @@
         // baseAudioUrl bleibt gleich, kein neuer Request nötig
         }
       } else {
-        alert('Fehler beim Speichern: ' + j.message);
+        window.location.reload(true);
       }
     } catch (err) {
       loadingOverlay.style.display = 'none';
