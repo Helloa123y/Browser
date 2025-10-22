@@ -127,10 +127,7 @@
                     queueInterval = setInterval(checkQueuePosition, 5000);
                 }
             } else {
-                queueText.style.display = 'block';
-                queuePositionEl.textContent = j.position || '-';
-                if(queueInterval) clearInterval(queueInterval);
-                queueInterval = setInterval(checkQueuePosition, 5000);
+                alert('Fehler: ' + j.message);
             }
         } catch(err){
             console.error('Fehler beim Captcha-Request:', err);
@@ -140,11 +137,10 @@
     async function checkQueuePosition(){
         try{
             const res = await fetch('/api/queue-position');
-            console.log(res);
             const j = await res.json();
             if(j.success){
                 queuePositionEl.textContent = j.position;
-                if(j.position === 0){
+                if(j.position === 1){
                     // Jetzt Captcha zuweisen
                     clearInterval(queueInterval);
                     requestCaptcha();
