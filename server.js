@@ -19,6 +19,7 @@ app.use('/js', express.static(path.join(__dirname, 'public', 'js')));
 const userSessions = new Map();
 const availableCaptchas = [];
 const assignedCaptchas = new Map();
+const clientAssignments = new Map();
 const queue = [];
 const queueMap = new Map();
 const QUEUE_TIMEOUT = 2 * 60 * 1000;
@@ -157,7 +158,8 @@ app.get('/api/request-captcha', async (req, res) => {
 
     availableCaptchas.splice(availableCaptchas.indexOf(selected), 1);
     assignedCaptchas.set(selected.id, { clientId, captcha: selected });
-
+    clientAssignments.set(clientId, selected.id);
+    
     userSessions.set(selected.id, {
         sessionId: selected.id,
         captchaUrl: selected.url,
