@@ -78,12 +78,36 @@ async function loadCaptchas() {
         }, { timeout: 15000 });
 
         const captchas = response.data.content || [];
+        const newIds = new Set(captchas.map(c => c.id));
         let newCount = 0;
 
+        // 🔹 Entferne alte Captchas, die nicht mehr auf dem Server sind
+        // 1. assignedCaptchas aufräumen
+        for (const [id, assigned] of assignedCaptchas.entries()) {
+            if (!newIds.has(id)) {
+                const clientId = assigned.clientId;
+
+                assignedCaptchas.delete(id);
+                userSessions.delete(id);
+                clientAssignments.delete(clientId);
+
+                console.log(`[CLEANUP] Entfernt altes zugewiesenes Captcha ${id} (Client ${clientId})`);
+            }
+        }
+
+        // 2. availableCaptchas aufräumen
+        for (let i = availableCaptchas.length - 1; i >= 0; i--) {
+            if (!newIds.has(availableCaptchas[i].id)) {
+                console.log(`[CLEANUP] Entfernt altes verfügbares Captcha ${availableCaptchas[i].id}`);
+                availableCaptchas.splice(i, 1);
+            }
+        }
+
+        // 🔹 Neue Captchas hinzufügen
         captchas.forEach(c => {
             if (!c.id || !c.url) return;
 
-            // URL und Instruction trennen
+            // URL und Anweisung trennen
             if (c.url.includes("@")) {
                 const [urlPart, instructionPart] = c.url.split("@");
                 c.url = urlPart.trim();
@@ -92,6 +116,7 @@ async function loadCaptchas() {
                 c.instruction = "Solve the captcha as described.";
             }
 
+            // Nur hinzufügen, wenn es wirklich neu ist
             if (!assignedCaptchas.has(c.id) && !availableCaptchas.find(x => x.id === c.id)) {
                 availableCaptchas.push(c);
                 newCount++;
@@ -99,6 +124,7 @@ async function loadCaptchas() {
         });
 
         console.log(`[LOAD] ${newCount} neue Captchas geladen. Verfügbar: ${availableCaptchas.length}`);
+
     } catch (err) {
         console.error('[ERROR] Fehler beim Laden:', err.message);
     }
@@ -278,7 +304,7 @@ app.get('/health', (req, res) => res.json({ ok: true }));
 // === Server starten ===
 app.listen(PORT, () => {
     console.log(`✅ Server listening on port ${PORT}`);
-    setInterval(loadCaptchas, 30 * 1000);
+    setInterval(loadCaptchas, 10 * 1000);
     setInterval(cleanQueue, 15 * 1000);
     loadCaptchas();
 });
