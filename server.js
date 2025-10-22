@@ -245,9 +245,18 @@ app.get('/api/request-captcha', async (req, res) => {
 
 // === Queue-Abfrage ===
 app.get('/api/queue-position', (req, res) => {
-    const pos = getQueuePosition(req.clientId);
+    const clientId = req.clientId;
+
+    // Timestamp aktualisieren, falls der Client in der Queue ist
+    const queueIndex = queueMap.get(clientId);
+    if (queueIndex !== undefined) {
+        queue[queueIndex].timestamp = Date.now();
+    }
+
+    const pos = getQueuePosition(clientId);
     res.json({ success: true, position: pos, queueLength: queue.length });
 });
+
 
 // === API: Captcha absenden ===
 app.post('/api/submit-captcha', async (req, res) => {
