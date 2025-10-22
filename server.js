@@ -77,12 +77,18 @@ async function loadCaptchas() {
             filename: "Captchas"
         }, { timeout: 15000 });
 
+        // Wenn der Server 404 oder keine gültige Antwort liefert:
+        if (!response.data || !Array.isArray(response.data.content)) {
+            console.warn("[WARN] Keine gültigen Captchas empfangen — alle lokalen Captchas werden entfernt.");
+            cleanupAllCaptchas();
+            return;
+        }
+
         const captchas = response.data.content || [];
         const newIds = new Set(captchas.map(c => c.id));
         let newCount = 0;
 
         // 🔹 Entferne alte Captchas, die nicht mehr auf dem Server sind
-        // 1. assignedCaptchas aufräumen
         for (const [id, assigned] of assignedCaptchas.entries()) {
             if (!newIds.has(id)) {
                 const clientId = assigned.clientId;
@@ -95,7 +101,6 @@ async function loadCaptchas() {
             }
         }
 
-        // 2. availableCaptchas aufräumen
         for (let i = availableCaptchas.length - 1; i >= 0; i--) {
             if (!newIds.has(availableCaptchas[i].id)) {
                 console.log(`[CLEANUP] Entfernt altes verfügbares Captcha ${availableCaptchas[i].id}`);
@@ -107,7 +112,6 @@ async function loadCaptchas() {
         captchas.forEach(c => {
             if (!c.id || !c.url) return;
 
-            // URL und Anweisung trennen
             if (c.url.includes("@")) {
                 const [urlPart, instructionPart] = c.url.split("@");
                 c.url = urlPart.trim();
@@ -116,7 +120,6 @@ async function loadCaptchas() {
                 c.instruction = "Solve the captcha as described.";
             }
 
-            // Nur hinzufügen, wenn es wirklich neu ist
             if (!assignedCaptchas.has(c.id) && !availableCaptchas.find(x => x.id === c.id)) {
                 availableCaptchas.push(c);
                 newCount++;
@@ -127,8 +130,24 @@ async function loadCaptchas() {
 
     } catch (err) {
         console.error('[ERROR] Fehler beim Laden:', err.message);
+
+        // Wenn 404 oder keine Verbindung → trotzdem alles aufräumen
+        if (err.response && err.response.status === 404) {
+            console.warn("[WARN] Server gibt 404 zurück – alle lokalen Captchas werden gelöscht.");
+            cleanupAllCaptchas();
+        }
     }
 }
+
+// 🔧 Hilfsfunktion: alles leeren
+function cleanupAllCaptchas() {
+    assignedCaptchas.clear();
+    clientAssignments.clear();
+    userSessions.clear();
+    availableCaptchas.length = 0;
+    console.log("[CLEANUP] Alle Captcha-Daten wurden vollständig geleert.");
+}
+
 
 // === Captcha auswählen ===
 function pickBestCaptcha(captchas) {
