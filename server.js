@@ -22,7 +22,7 @@ const assignedCaptchas = new Map();
 const clientAssignments = new Map();
 const queue = [];
 const queueMap = new Map();
-const QUEUE_TIMEOUT = 30 * 1000;
+const QUEUE_TIMEOUT = 15 * 1000;
 
 // === Middleware für Client-ID via Cookie ===
 app.use((req, res, next) => {
@@ -227,6 +227,14 @@ app.get('/api/request-captcha', async (req, res) => {
     const selected = pickBestCaptcha(availableCaptchas);
     if (!selected) return res.status(500).json({ success: false, message: "Keine Captchas gefunden." });
 
+    const queueIndex = queueMap.get(clientId);
+    if (queueIndex !== undefined) {
+          queue.splice(queueIndex, 1);
+          queueMap.delete(clientId);
+          console.log(`[QUEUE] ${clientId} aus der Queue entfernt, da Captcha verfügbar ist`);
+          syncQueueMap();
+    }
+    
     availableCaptchas.splice(availableCaptchas.indexOf(selected), 1);
     assignedCaptchas.set(selected.id, { clientId, captcha: selected });
     clientAssignments.set(clientId, selected.id);
@@ -341,6 +349,6 @@ app.get('/health', (req, res) => res.json({ ok: true }));
 app.listen(PORT, () => {
     console.log(`✅ Server listening on port ${PORT}`);
     setInterval(loadCaptchas, 10 * 1000);
-    setInterval(cleanQueue, 15 * 1000);
+    setInterval(cleanQueue, 5 * 1000);
     loadCaptchas();
 });
