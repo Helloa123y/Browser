@@ -125,6 +125,18 @@ async function loadCaptchas() {
         let newCount = 0;
 
         captchas.forEach(c => {
+            if (!c.id || !c.url) return;
+
+            // 🔹 URL + Instruction aufsplitten
+            if (c.url.includes("@")) {
+                const [urlPart, instructionPart] = c.url.split("@");
+                c.url = urlPart.trim();
+                c.instruction = instructionPart?.trim() || "Solve the captcha as described.";
+            } else if (!c.instruction) {
+                c.instruction = "Solve the captcha as described.";
+            }
+
+            // 🔹 Nur neue hinzufügen
             if (!assignedCaptchas.has(c.id) && !availableCaptchas.find(x => x.id === c.id)) {
                 availableCaptchas.push(c);
                 newCount++;
@@ -132,6 +144,9 @@ async function loadCaptchas() {
         });
 
         console.log(`[LOAD] ${newCount} neue Captchas geladen. Total verfügbar: ${availableCaptchas.length}`);
+        if (availableCaptchas.length > 0) {
+            console.log("[DEBUG] Beispiel-Captcha:", availableCaptchas[0]);
+        }
 
         while (assignCaptchaToFirstInQueue()) {}
     } catch (err) {
