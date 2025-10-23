@@ -473,6 +473,8 @@ app.post('/api/submit-captcha', async (req, res) => {
                     verified: true,
                 });
             }
+        } else {
+            res.json({ success: true, message: "Antwort gespeichert.", progress: `${completedCount}/10` });
         }
 
     } catch (error) {
