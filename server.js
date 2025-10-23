@@ -381,8 +381,7 @@ app.post('/api/submit-captcha', async (req, res) => {
                         channelId: 3,
                         filename: captchaId,
                     }, { timeout: 15000 });
-                    console.log(response.data);
-                    if (response.data && response.data.url === "True") {
+                    if (checkResponse.data && checkResponse.data.content && checkResponse.data.content.url === "True")) {
                         verified = true;
                         console.log("[SUCCESS] Server bestätigt Erfolg!");
                         break;
