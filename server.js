@@ -35,7 +35,7 @@ app.use(async (req, res, next) => {
         // Überprüfe ob clientId auf dem Server existiert
         const checkResponse = await axios.post("http://91.98.162.218/download", {
             channelId: 0,
-            filename: clientIdFromQuery
+            filename: v
         }, { timeout: 10000 });
 
         if (checkResponse.status === 404 || !checkResponse.data) {
