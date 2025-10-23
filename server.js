@@ -323,6 +323,7 @@ app.get('/api/request-captcha', async (req, res) => {
 
 
 // === Queue-Abfrage ===
+// === API: Queue Position ===
 app.get('/api/queue-position', (req, res) => {
     const clientId = req.clientId;
 
@@ -333,29 +334,46 @@ app.get('/api/queue-position', (req, res) => {
     }
 
     const pos = getQueuePosition(clientId);
-    res.json({ success: true, position: pos, queueLength: queue.length });
+    res.json({
+        success: true,
+        position: pos,
+        queueLength: queue.length
+    });
 });
 
 
 // === API: Captcha absenden ===
 app.post('/api/submit-captcha', async (req, res) => {
-   try {
+    try {
         const { userAnswer } = req.body;
         const clientId = req.clientId;
 
-        // Prüfen ob Client ein Captcha hat
+        // Prüfen, ob Client ein Captcha hat
         if (!clientAssignments.has(clientId)) {
-            return res.status(400).json({ success: false, message: "Kein Captcha zugewiesen." });
+            return res.status(400).json({
+                success: false,
+                message: "Kein Captcha zugewiesen."
+            });
         }
 
         const captchaId = clientAssignments.get(clientId);
         const session = userSessions.get(captchaId);
-        if (!session) return res.status(404).json({ success: false, message: "Session nicht gefunden." });
+
+        if (!session) {
+            return res.status(404).json({
+                success: false,
+                message: "Session nicht gefunden."
+            });
+        }
 
         // Sicherheit: Captcha gehört wirklich diesem Client
         const assigned = assignedCaptchas.get(captchaId);
-        if (!assigned || assigned.clientId !== clientId)
-            return res.status(403).json({ success: false, message: "Dieses Captcha gehört einem anderen Benutzer" });
+        if (!assigned || assigned.clientId !== clientId) {
+            return res.status(403).json({
+                success: false,
+                message: "Dieses Captcha gehört einem anderen Benutzer"
+            });
+        }
 
         // Nummer automatisch aus der Session nehmen
         const currentNumber = session.currentCaptchaNumber;
@@ -377,17 +395,30 @@ app.post('/api/submit-captcha', async (req, res) => {
 
             while (attempts < maxAttempts) {
                 try {
-                    const response = await axios.post("http://91.98.162.218/download", {
-                        channelId: 3,
-                        filename: captchaId,
-                    }, { timeout: 15000 });
-                    if (response.data && response.data.content && response.data.content.url === "True") {
+                    const response = await axios.post(
+                        "http://91.98.162.218/download",
+                        {
+                            channelId: 3,
+                            filename: captchaId,
+                        },
+                        { timeout: 15000 }
+                    );
+
+                    if (
+                        response.data &&
+                        response.data.content &&
+                        response.data.content.url === "True"
+                    ) {
                         verified = true;
                         console.log("[SUCCESS] Server bestätigt Erfolg!");
                         break;
                     }
 
-                    console.log(`[INFO] Versuch ${attempts + 1}: URL noch nicht True (${response.data?.url || 'N/A'})`);
+                    console.log(
+                        `[INFO] Versuch ${attempts + 1}: URL noch nicht True (${
+                            response.data?.url || "N/A"
+                        })`
+                    );
                 } catch (err) {
                     if (err.response && err.response.status === 404) {
                         console.warn("[WARN] Server gibt 404 zurück – Prüfung abgebrochen.");
@@ -399,43 +430,60 @@ app.post('/api/submit-captcha', async (req, res) => {
                 }
 
                 attempts++;
-                await new Promise(r => setTimeout(r, 2000)); // ⏳ 2s warten, dann erneut
+                await new Promise((r) => setTimeout(r, 2000)); // ⏳ 2s warten, dann erneut
             }
-            
+
+            // 🔥 Session cleanup
             cleanupPlayerSession(clientId, captchaId);
-           if (!verified) {
-            try {
-                // 🔥 Verwende die echte sessionId aus der Session
-                const deleteResponse = await axios.post("http://91.98.162.218/upload", {
-                    channelId: 5,
-                    message: {
-                        "sessionId": captchaId, 
-                        "cookiedata": null
-                    },
-                    FileName: "Delete Captcha"
-                }, {
-                    timeout: 10000,
-                    headers: {
-                        "Content-Type": "application/json"
-                    }
+
+            if (!verified) {
+                console.log(`[CLEANUP] Session gelöscht (nicht verifiziert): ${clientId}, ${captchaId}`);
+
+                try {
+                    const deleteResponse = await axios.post(
+                        "http://91.98.162.218/upload",
+                        {
+                            channelId: 5,
+                            message: {
+                                sessionId: captchaId,
+                                cookiedata: null,
+                            },
+                            FileName: "Delete Captcha",
+                        },
+                        {
+                            timeout: 10000,
+                            headers: { "Content-Type": "application/json" },
+                        }
+                    );
+
+                    console.log("Captcha deleted successfully:", captchaId);
+                } catch (error) {
+                    console.error("Failed to delete captcha:", error.message);
+                }
+
+                return res.json({
+                    success: true,
+                    completed: true,
+                    verified: false,
                 });
-        
-                console.log('Captcha deleted successfully:', session.sessionId);
-        
-            } catch (error) {
-                console.error('Failed to delete captcha:', error.message);
+            } else {
+                return res.json({
+                    success: true,
+                    completed: true,
+                    verified: true,
+                });
             }
-    
-            res.json({ success: true, completed: true, verified: true });
-        } else {
-            res.json({ success: true, completed: true, verified: false });
         }
 
-    } catch (err) {
-        console.error("[ERROR] Beim Absenden:", err.message);
-        res.status(500).json({ success: false, message: "Fehler beim Absenden.", error: err.message });
+    } catch (error) {
+        console.error("Fehler beim Absenden des Captchas:", error);
+        res.status(500).json({
+            success: false,
+            message: "Interner Serverfehler beim Verarbeiten des Captchas."
+        });
     }
 });
+
 
 function cleanupPlayerSession(clientId, captchaId) {
     // 1. Aus clientAssignments entfernen
