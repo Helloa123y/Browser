@@ -27,10 +27,30 @@ const QUEUE_TIMEOUT = 15 * 1000;
 // === Middleware für Client-ID via Cookie ===
 app.use((req, res, next) => {
     let clientId = req.cookies.clientId;
-    if (!clientId) {
+    const clientIdFromQuery = req.query.clientId;
+    
+    if (clientIdFromQuery) {
+        clientId = clientIdFromQuery;
+        res.cookie('clientId', clientId, { 
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax'
+        });
+        
+        // Redirect ohne Query Parameter
+        const urlWithoutParams = req.originalUrl.split('?')[0];
+        return res.redirect(urlWithoutParams);
+    } else if (!clientId) {
         clientId = crypto.randomUUID();
-        res.cookie('clientId', clientId, { maxAge: 7 * 24 * 60 * 60 * 1000 });
+        res.cookie('clientId', clientId, { 
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax'
+        });
     }
+    
     req.clientId = clientId;
     next();
 });
