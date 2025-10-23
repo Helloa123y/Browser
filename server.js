@@ -22,12 +22,11 @@ const queueMap = new Map();
 const QUEUE_TIMEOUT = 15 * 1000;
 
 app.use(async (req, res, next) => {
-    const clientIdFromQuery = req.query.clientId;
-    
-    if (!clientIdFromQuery) {
+    const clientIdNumber = parseInt(clientIdFromQuery);
+    if (isNaN(clientIdNumber)) {
         return res.status(400).json({ 
             success: false, 
-            message: "Invalid link - no userID provided" 
+            message: "Invalid link - UserID invalid or missing" 
         });
     }
 
