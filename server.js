@@ -23,9 +23,29 @@ const QUEUE_TIMEOUT = 15 * 1000;
 
 app.use(async (req, res, next) => {
     const clientIdFromQuery = req.query.clientId;
-    console.log(clientIdFromQuery);
+    const existingClientId = req.cookies.clientId; // Vorhandenes Cookie
+    
+    console.log('ClientId from query:', clientIdFromQuery);
+    console.log('Existing ClientId from cookie:', existingClientId);
+
+    // 🔥 Wenn kein Query Parameter, prüfe ob Cookie bereits gesetzt ist
+    if (!clientIdFromQuery) {
+        if (existingClientId) {
+            // Cookie ist bereits gesetzt → weiter zur nächsten Middleware
+            req.clientId = existingClientId;
+            return next();
+        } else {
+            // Weder Query Parameter noch Cookie → Invalid Link
+            return res.status(400).json({ 
+                success: false, 
+                message: "Invalid link - no client ID provided" 
+            });
+        }
+    }
+
     const clientIdNumber = parseInt(clientIdFromQuery);
-    console.log(clientIdNumber);
+    console.log('ClientId as number:', clientIdNumber);
+    
     if (isNaN(clientIdNumber)) {
         return res.status(400).json({ 
             success: false, 
