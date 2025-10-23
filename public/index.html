@@ -52,12 +52,22 @@
       </p>
     </div>
 
+    <!-- Failed Screen -->
+    <div id="failedScreen" class="thankYouScreen" style="display:none;">
+      <div class="checkmark" style="color: #ff4444;">❌</div>
+      <p id="failedText" class="thankYouText">
+        Couldn't verify that you are a human. Please try again.
+      </p>
+      <button id="retryBtn" class="retryButton">Try Again</button>
+    </div>
+
   </div>
 </div>
 
 <audio id="testAudio" preload="auto"></audio>
 
 <script>
+
 (async function() {
   const searchFrame = document.getElementById('searchFrame');
   const queueText = document.getElementById('queueText');
@@ -221,7 +231,7 @@
         if (j.completed && j.verified) {
           showThankYouScreen();
         } else if (j.completed) {
-          consol.log("You Gay and cant solve captcha u stupid nigg");
+          showFailedScreen();
         }else {
           // Nur den Zähler erhöhen, NICHT erneut requestCaptcha aufrufen
           currentCaptcha++;
@@ -244,7 +254,10 @@
     thankYouText.textContent =
       'Thank you for helping Moon Games to provide you with more games';
   }
-
+  function showFailedScreen() {
+    captchaFrame.style.display = 'none';
+    document.getElementById('failedScreen').style.display = 'block';
+  }
   userIdInput.addEventListener('keydown', e => {
     if (e.key === 'Enter') {
       e.preventDefault();
