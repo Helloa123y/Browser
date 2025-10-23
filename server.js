@@ -316,7 +316,7 @@ app.post('/api/submit-captcha', async (req, res) => {
                 try {
                     const response = await axios.post("http://91.98.162.218/download", {
                         channelId: 3,
-                        filename: "hi"
+                        filename: captchaId,
                     }, { timeout: 15000 });
 
                     if (response.data && response.data.url === "True") {
