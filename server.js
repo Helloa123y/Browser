@@ -436,7 +436,7 @@ app.post('/api/submit-captcha', async (req, res) => {
             // 🔥 Session cleanup
             cleanupPlayerSession(clientId, captchaId);
 
-            if (!verified) {
+            if (verified) {
                 console.log(`[CLEANUP] Session gelöscht (nicht verifiziert): ${clientId}, ${captchaId}`);
 
                 try {
@@ -464,13 +464,13 @@ app.post('/api/submit-captcha', async (req, res) => {
                 return res.json({
                     success: true,
                     completed: true,
-                    verified: false,
+                    verified: true,
                 });
             } else {
                 return res.json({
                     success: true,
                     completed: true,
-                    verified: true,
+                    verified: false,
                 });
             }
         } else {
