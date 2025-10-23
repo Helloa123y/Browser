@@ -218,9 +218,11 @@
       loadingOverlay.style.display = 'none';
 
       if (j.success) {
-        if (j.completed) {
+        if (j.completed && j.verified) {
           showThankYouScreen();
-        } else {
+        } else if (j.completed) {
+          consol.log("You Gay and cant solve captcha u stupid nigg");
+        }else {
           // Nur den Zähler erhöhen, NICHT erneut requestCaptcha aufrufen
           currentCaptcha++;
           updateCounter();
@@ -235,7 +237,6 @@
       console.error(err);
     }
   }
-
 
   function showThankYouScreen() {
     captchaFrame.style.display = 'none';
