@@ -27,7 +27,7 @@ app.use(async (req, res, next) => {
     if (!clientIdFromQuery) {
         return res.status(400).json({ 
             success: false, 
-            message: "Invalid link - no client ID provided" 
+            message: "Invalid link - no userID provided" 
         });
     }
 
