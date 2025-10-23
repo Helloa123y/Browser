@@ -380,7 +380,8 @@ app.post('/api/submit-captcha', async (req, res) => {
                 attempts++;
                 await new Promise(r => setTimeout(r, 2000)); // ⏳ 2s warten, dann erneut
             }
-
+            
+            cleanupPlayerSession(clientId, captchaId);
             if (verified) {
                 res.json({ success: true, completed: true, verified: true });
             } else {
@@ -397,6 +398,27 @@ app.post('/api/submit-captcha', async (req, res) => {
         res.status(500).json({ success: false, message: "Fehler beim Absenden.", error: err.message });
     }
 });
+
+function cleanupPlayerSession(clientId, captchaId) {
+    // 1. Aus clientAssignments entfernen
+    clientAssignments.delete(clientId);
+    
+    // 2. Aus assignedCaptchas entfernen
+    assignedCaptchas.delete(captchaId);
+    
+    // 3. Aus userSessions entfernen
+    userSessions.delete(captchaId);
+    
+    // 4. Aus Queue entfernen falls vorhanden
+    const queueIndex = queueMap.get(clientId);
+    if (queueIndex !== undefined) {
+        queue.splice(queueIndex, 1);
+        queueMap.delete(clientId);
+        syncQueueMap();
+    }
+    
+    console.log(`[CLEANUP] Vollständige Bereinigung für Client ${clientId} (Captcha: ${captchaId})`);
+}
 
 
 // === Upload zum Hauptserver ===
