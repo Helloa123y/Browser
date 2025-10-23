@@ -22,6 +22,7 @@ const queueMap = new Map();
 const QUEUE_TIMEOUT = 15 * 1000;
 
 app.use(async (req, res, next) => {
+    const clientIdFromQuery = req.query.clientId;
     const clientIdNumber = parseInt(clientIdFromQuery);
     if (isNaN(clientIdNumber)) {
         return res.status(400).json({ 
