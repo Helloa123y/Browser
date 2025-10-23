@@ -58,7 +58,7 @@
       <p id="failedText" class="thankYouText">
         Couldn't verify that you are a human. Please try again.
       </p>
-      <button id="retryBtn" class="retryButton">Try Again</button>
+      <button id="retryBtn" class="retryButton" style="margin-top: 25px;">Try Again</button>
     </div>
 
   </div>
@@ -264,7 +264,9 @@
       submitCaptcha();
     }
   });
-
+  document.getElementById('retryBtn').addEventListener('click', function() {
+    location.reload();
+  });
   // Initial starten
   requestCaptcha();
 })();
