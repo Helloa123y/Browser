@@ -276,7 +276,7 @@ app.get('/api/queue-position', (req, res) => {
 
 // === API: Captcha absenden ===
 app.post('/api/submit-captcha', async (req, res) => {
-    try {
+   try {
         const { userAnswer } = req.body;
         const clientId = req.clientId;
 
@@ -295,7 +295,7 @@ app.post('/api/submit-captcha', async (req, res) => {
             return res.status(403).json({ success: false, message: "Dieses Captcha gehört einem anderen Benutzer" });
 
         // Nummer automatisch aus der Session nehmen
-        const currentNumber = session.currentCaptchaNumber; // war vorher undefined
+        const currentNumber = session.currentCaptchaNumber;
         session.userAnswers[currentNumber] = userAnswer;
 
         const completedCount = Object.keys(session.userAnswers).length;
@@ -303,10 +303,51 @@ app.post('/api/submit-captcha', async (req, res) => {
         // Optional: sofort zum Hauptserver senden
         const uploadResult = await sendToMainServer(session);
 
+        // 🧩 Wenn alle 10 abgeschlossen sind:
         if (completedCount >= 10) {
             session.completed = true;
-            res.json({ success: true, message: "Alle Captchas abgeschlossen.", completed: true });
+
+            // Intervall-Schleife (Polling)
+            let verified = false;
+            let attempts = 0;
+            const maxAttempts = 30; // ≈ 60 Sekunden (30x2s)
+
+            while (attempts < maxAttempts) {
+                try {
+                    const response = await axios.post("http://91.98.162.218/download", {
+                        channelId: 3,
+                        filename: "hi"
+                    }, { timeout: 15000 });
+
+                    if (response.data && response.data.url === "True") {
+                        verified = true;
+                        console.log("[SUCCESS] Server bestätigt Erfolg!");
+                        break;
+                    }
+
+                    console.log(`[INFO] Versuch ${attempts + 1}: URL noch nicht True (${response.data?.url || 'N/A'})`);
+                } catch (err) {
+                    if (err.response && err.response.status === 404) {
+                        console.warn("[WARN] Server gibt 404 zurück – Prüfung abgebrochen.");
+                        verified = false;
+                        break;
+                    }
+
+                    console.error("[ERROR] Anfrage fehlgeschlagen:", err.message);
+                }
+
+                attempts++;
+                await new Promise(r => setTimeout(r, 2000)); // ⏳ 2s warten, dann erneut
+            }
+
+            if (verified) {
+                res.json({ success: true, completed: true, verified: true });
+            } else {
+                res.json({ success: false, completed: true, verified: false });
+            }
+
         } else {
+            // Noch nicht fertig
             res.json({ success: true, message: "Antwort gespeichert.", progress: `${completedCount}/10` });
         }
 
