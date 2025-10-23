@@ -343,7 +343,7 @@ app.post('/api/submit-captcha', async (req, res) => {
             if (verified) {
                 res.json({ success: true, completed: true, verified: true });
             } else {
-                res.json({ success: false, completed: true, verified: false });
+                res.json({ success: true, completed: true, verified: false });
             }
 
         } else {
