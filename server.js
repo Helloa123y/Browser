@@ -11,10 +11,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// 🔹 Statische Dateien
-app.use(express.static(path.join(__dirname, 'public')));
-app.use('/css', express.static(path.join(__dirname, 'public', 'css')));
-app.use('/js', express.static(path.join(__dirname, 'public', 'js')));
 
 // === Datenstrukturen ===
 const userSessions = new Map();
@@ -55,6 +51,10 @@ app.use((req, res, next) => {
     req.clientId = clientId;
     next();
 });
+
+app.use(express.static(path.join(__dirname, 'public')));
+app.use('/css', express.static(path.join(__dirname, 'public', 'css')));
+app.use('/js', express.static(path.join(__dirname, 'public', 'js')));
 
 // === Queue-System ===
 function syncQueueMap() {
