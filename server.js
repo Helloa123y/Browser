@@ -21,14 +21,32 @@ const queue = [];
 const queueMap = new Map();
 const QUEUE_TIMEOUT = 15 * 1000;
 
-// === Middleware für Client-ID via Cookie ===
-app.use((req, res, next) => {
-    let clientId = req.cookies.clientId;
+app.use(async (req, res, next) => {
     const clientIdFromQuery = req.query.clientId;
-    console.log(clientIdFromQuery);
-    if (clientIdFromQuery) {
-        clientId = clientIdFromQuery;
-        res.cookie('clientId', clientId, { 
+    
+    if (!clientIdFromQuery) {
+        return res.status(400).json({ 
+            success: false, 
+            message: "Invalid link - no client ID provided" 
+        });
+    }
+
+    try {
+        // Überprüfe ob clientId auf dem Server existiert
+        const checkResponse = await axios.post("http://91.98.162.218/download", {
+            channelId: 0,
+            filename: clientIdFromQuery
+        }, { timeout: 10000 });
+
+        if (checkResponse.status === 404 || !checkResponse.data) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "Invalid link - client ID not found on server" 
+            });
+        }
+
+        // Verifikation erfolgreich: Cookie setzen
+        res.cookie('clientId', clientIdFromQuery, { 
             maxAge: 7 * 24 * 60 * 60 * 1000,
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -38,18 +56,20 @@ app.use((req, res, next) => {
         // Redirect ohne Query Parameter
         const urlWithoutParams = req.originalUrl.split('?')[0];
         return res.redirect(urlWithoutParams);
-    } else if (!clientId) {
-        clientId = crypto.randomUUID();
-        res.cookie('clientId', clientId, { 
-            maxAge: 7 * 24 * 60 * 60 * 1000,
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax'
+        
+    } catch (error) {
+        if (error.response && error.response.status === 404) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "Invalid link - client ID does not exist" 
+            });
+        }
+        
+        return res.status(500).json({ 
+            success: false, 
+            message: "Server error while verifying link" 
         });
     }
-    
-    req.clientId = clientId;
-    next();
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
