@@ -28,7 +28,7 @@ const QUEUE_TIMEOUT = 15 * 1000;
 app.use((req, res, next) => {
     let clientId = req.cookies.clientId;
     const clientIdFromQuery = req.query.clientId;
-    
+    console.log(clientIdFromQuery);
     if (clientIdFromQuery) {
         clientId = clientIdFromQuery;
         res.cookie('clientId', clientId, { 
