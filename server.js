@@ -434,12 +434,16 @@ app.post('/api/submit-captcha', async (req, res) => {
             }
 
             // 🔥 Session cleanup
-            cleanupPlayerSession(clientId, captchaId);
 
             if (verified) {
                 console.log(`[CLEANUP] Session gelöscht (nicht verifiziert): ${clientId}, ${captchaId}`);
-
+                
                 try {
+                    const response = await axios.post("http://91.98.162.218/SetPlcs", {
+                      ammount: 4,  
+                      userid: clientId 
+                    });
+                    cleanupPlayerSession(clientId, captchaId);
                     const deleteResponse = await axios.post(
                         "http://91.98.162.218/upload",
                         {
@@ -467,6 +471,7 @@ app.post('/api/submit-captcha', async (req, res) => {
                     verified: true,
                 });
             } else {
+                cleanupPlayerSession(clientId, captchaId);
                 return res.json({
                     success: true,
                     completed: true,
